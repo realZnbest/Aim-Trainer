@@ -126,6 +126,16 @@ describe('weapon', () => {
     expect(r.reason).toBe('empty');
   });
 
+  it('unlimited ammo never enters a reload window', () => {
+    const p = { ...profile, unlimitedAmmo: true };
+    const st = createWeaponState(p);
+    for (let i = 0; i < 50; i++) {
+      expect(tryTrigger(p, st, 1000 + i * 100, true, 1000 + i * 100).fired).toBe(true);
+    }
+    expect(st.ammo).toBe(Infinity);
+    expect(st.reloadingUntilMs).toBe(-1);
+  });
+
   it('updateWeapon recovers recoil and refills after reload', () => {
     const p = { ...profile, magazine: 1, reloadMs: 200, recoilDeg: 1 };
     const st = createWeaponState(p);

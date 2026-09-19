@@ -21,6 +21,8 @@ export interface WeaponProfile {
   spreadDeg: number;
   magazine: number;
   reloadMs: number;
+  /** Gameplay-only override for drills that should never run out of shots. */
+  unlimitedAmmo?: boolean;
 }
 
 export interface SpawnArea {

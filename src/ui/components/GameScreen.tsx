@@ -84,8 +84,8 @@ function CameraRig({ run }: { run: React.MutableRefObject<RunRefs | null> }): nu
     const aim = r.input.getAim();
     camera.rotation.order = 'YXZ';
     camera.rotation.y = aim.yawRad;
-    // Visual recoil only (presentation); sim fire uses raw aim + rolled spread.
-    camera.rotation.x = aim.pitchRad + r.weapon.recoilPitchRad;
+    // Keep the aim camera stable; recoil belongs to the weapon viewmodel only.
+    camera.rotation.x = aim.pitchRad;
     camera.rotation.z = 0;
   });
   return null;
@@ -147,6 +147,7 @@ function WeaponModel({
 }): null | ReactElement {
   const { camera } = useThree();
   const group = useRef<THREE.Group>(null);
+  const model = useRef<THREE.Group>(null);
   const targetPosition = useMemo(() => new THREE.Vector3(), []);
   const targetQuaternion = useMemo(() => new THREE.Quaternion(), []);
   const localOffset = useMemo(() => new THREE.Vector3(), []);
@@ -155,18 +156,24 @@ function WeaponModel({
     const weapon = group.current;
     if (!weapon) return;
     const recoil = run.current?.weapon.recoilPitchRad ?? 0;
-    localOffset.set(0.26 + recoil * 0.035, -0.36 + recoil * 0.16, -0.82 + recoil * 0.1);
+    localOffset.set(0.45 + recoil * 0.035, -0.56 + recoil * 0.16, -0.86 + recoil * 0.1);
     targetPosition.copy(localOffset).applyQuaternion(camera.quaternion).add(camera.position);
     targetQuaternion.copy(camera.quaternion);
     const follow = 1 - Math.exp(-24 * delta);
     weapon.position.lerp(targetPosition, follow);
     weapon.quaternion.slerp(targetQuaternion, follow);
+    if (model.current) {
+      const kick = Math.min(0.19, recoil * 10);
+      model.current.rotation.x = 0.08 + kick;
+      model.current.position.y = kick * 0.08;
+      model.current.position.z = kick * 0.35;
+    }
   });
 
   return (
     <group ref={group} visible={visible}>
       <pointLight position={[-0.3, 0.35, 0.45]} intensity={0.35} distance={3} color="#b7c7e6" />
-      <group rotation={[0.08, -0.04, 0.02]} scale={0.68}>
+      <group ref={model} rotation={[0.08, -0.04, 0.02]} scale={0.58}>
         {/* Slide and barrel */}
         <mesh castShadow position={[0, 0.04, -0.12]}>
           <boxGeometry args={[0.34, 0.13, 0.56]} />
@@ -230,48 +237,12 @@ function WeaponModel({
           <boxGeometry args={[0.035, 0.055, 0.1]} />
           <meshStandardMaterial color="#ff4655" metalness={0.25} roughness={0.4} />
         </mesh>
-        <mesh position={[0, 0.04, -0.83]} rotation={[Math.PI / 2, 0, 0]} visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.018}>
+        <mesh position={[0, 0.04, -0.83]} rotation={[Math.PI / 2, 0, 0]} visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.004}>
           <coneGeometry args={[0.08, 0.2, 6]} />
           <meshBasicMaterial color="#ff4655" toneMapped={false} />
         </mesh>
       </group>
     </group>
-  );
-}
-
-function WeaponStatus({
-  ammo,
-  magazine,
-  reloading,
-  reloadProgress,
-}: {
-  ammo: number;
-  magazine: number;
-  reloading: boolean;
-  reloadProgress: number;
-}): ReactElement {
-  const ammoRatio = magazine > 0 ? Math.max(0, Math.min(1, ammo / magazine)) : 0;
-
-  return (
-    <div
-      className="weapon-status pointer-events-none absolute bottom-10 right-0 z-[5] w-[min(72vw,420px)] opacity-95"
-      aria-label="weapon status"
-    >
-      <div className="mb-2 mr-5 ml-auto flex w-fit items-center gap-3 border border-linesoft bg-abyss/90 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-mist">
-        <span className="text-faint">{reloading ? 'RELOAD' : 'SIDEARM'}</span>
-        <span className={reloading ? 'text-steel' : ammo <= Math.max(3, magazine * 0.2) ? 'text-brand-soft' : 'text-ink'}>
-          {reloading
-            ? `${String(Math.round(reloadProgress * 100))}%`
-            : `${ammo.toString().padStart(2, '0')} / ${String(magazine)}`}
-        </span>
-      </div>
-      <div className="mr-5 ml-auto h-0.5 w-32 bg-linesoft">
-        <div
-          className="h-full bg-steel transition-[width] duration-100"
-          style={{ width: `${String(reloading ? reloadProgress * 100 : ammoRatio * 100)}%` }}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -297,10 +268,6 @@ export function GameScreen(): ReactElement {
     timeLeft: scenario.durationSec,
     fps: 0,
     itp: 0,
-    ammo: scenario.weapon.magazine,
-    magazine: scenario.weapon.magazine,
-    reloading: false,
-    reloadProgress: 0,
   });
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -312,6 +279,13 @@ export function GameScreen(): ReactElement {
   useEffect(() => {
     const seed = mulberrySeed();
     const cfg = scenarioToSpawnConfig(scenario);
+    // Drills measure aim, not reload discipline: keep firing available forever.
+    const gameplayWeapon = {
+      ...cfg.weapon,
+      // Viewmodel-only kick: drills with a zeroed profile still communicate each shot.
+      recoilDeg: Math.max(cfg.weapon.recoilDeg, 1.2),
+      unlimitedAmmo: true,
+    };
     const rng = createRng(`${seed}:spread`);
     const shots: ShotEvent[] = [];
     const reactions: number[] = [];
@@ -405,7 +379,7 @@ export function GameScreen(): ReactElement {
       multY: sens.multY,
       invertY: sens.invertY,
     });
-    const weapon = createWeaponState(cfg.weapon);
+    const weapon = createWeaponState(gameplayWeapon);
     run.current = {
       sim,
       input,
@@ -461,7 +435,7 @@ export function GameScreen(): ReactElement {
           r.path.push({ tMs: simTimeMs, yawRad: aim.yawRad, pitchRad: aim.pitchRad });
           if (r.path.length > 4000) r.path.splice(0, r.path.length - 4000);
 
-          updateWeapon(cfg.weapon, r.weapon, simTimeMs, dtSec);
+          updateWeapon(gameplayWeapon, r.weapon, simTimeMs, dtSec);
 
           // Tracking sample every tick
           if (
@@ -486,8 +460,8 @@ export function GameScreen(): ReactElement {
           }
 
           // Auto fire while held
-          if (r.holding && cfg.weapon.fireMode === 'auto') {
-            const res = tryTrigger(cfg.weapon, r.weapon, simTimeMs, true, r.holdSinceMs);
+          if (r.holding && gameplayWeapon.fireMode === 'auto') {
+            const res = tryTrigger(gameplayWeapon, r.weapon, simTimeMs, true, r.holdSinceMs);
             if (res.fired) {
               const sp = rollSpreadRad(cfg.weapon.spreadDeg, rng);
               sim.fire(simTimeMs, aim.yawRad, aim.pitchRad, sp.yaw, sp.pitch);
@@ -520,13 +494,6 @@ export function GameScreen(): ReactElement {
               timeLeft: Math.max(0, Math.ceil((endAtMs - sim.time) / 1000)),
               fps: Math.round(tele.fps),
               itp: tele.inputToPhotonMs,
-              ammo: r.weapon.ammo,
-              magazine: cfg.weapon.magazine,
-              reloading: r.weapon.reloadingUntilMs > sim.time,
-              reloadProgress:
-                r.weapon.reloadingUntilMs > sim.time && cfg.weapon.reloadMs > 0
-                  ? Math.max(0, Math.min(1, 1 - (r.weapon.reloadingUntilMs - sim.time) / cfg.weapon.reloadMs))
-                  : 0,
             });
           }
         },
@@ -637,7 +604,7 @@ export function GameScreen(): ReactElement {
       r.holding = true;
       r.holdSinceMs = simTimeMs;
       const aimNow = input.getAim();
-      const res = tryTrigger(cfg.weapon, r.weapon, simTimeMs, true, r.holdSinceMs);
+      const res = tryTrigger(gameplayWeapon, r.weapon, simTimeMs, true, r.holdSinceMs);
       if (res.fired) {
         const sp = rollSpreadRad(cfg.weapon.spreadDeg, rng);
         sim.fire(simTimeMs, aimNow.yawRad, aimNow.pitchRad, sp.yaw, sp.pitch);
@@ -753,13 +720,6 @@ export function GameScreen(): ReactElement {
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
         {scenario.title} · {scenario.durationSec}s · ESC pauses
       </div>
-
-      <WeaponStatus
-        ammo={hud.ammo}
-        magazine={hud.magazine}
-        reloading={hud.reloading}
-        reloadProgress={hud.reloadProgress}
-      />
 
       {/* Pointer-lock overlay — drill briefing card on the range */}
       {!locked && !paused && (

@@ -14,7 +14,12 @@ export interface WeaponState {
 }
 
 export function createWeaponState(profile: WeaponProfile): WeaponState {
-  return { ammo: profile.magazine, reloadingUntilMs: -1, lastShotMs: -1e9, recoilPitchRad: 0 };
+  return {
+    ammo: profile.unlimitedAmmo ? Infinity : profile.magazine,
+    reloadingUntilMs: -1,
+    lastShotMs: -1e9,
+    recoilPitchRad: 0,
+  };
 }
 
 export interface TriggerResult {
@@ -36,8 +41,10 @@ export function tryTrigger(
   heldSinceMs: number,
 ): TriggerResult {
   if (!pressed) return { fired: false };
-  if (nowMs < state.reloadingUntilMs) return { fired: false, reason: 'reloading' };
-  if (state.ammo <= 0) {
+  if (!profile.unlimitedAmmo && nowMs < state.reloadingUntilMs) {
+    return { fired: false, reason: 'reloading' };
+  }
+  if (!profile.unlimitedAmmo && state.ammo <= 0) {
     state.reloadingUntilMs = nowMs + profile.reloadMs;
     state.ammo = profile.magazine;
     return { fired: false, reason: 'empty' };
@@ -50,9 +57,9 @@ export function tryTrigger(
     if (nowMs - state.lastShotMs < intervalMs) return { fired: false, reason: 'rpm' };
   }
   state.lastShotMs = nowMs;
-  state.ammo -= 1;
+  if (!profile.unlimitedAmmo) state.ammo -= 1;
   state.recoilPitchRad += ((profile.recoilDeg * Math.PI) / 180) * 0.5;
-  if (state.ammo === 0) {
+  if (!profile.unlimitedAmmo && state.ammo === 0) {
     state.reloadingUntilMs = nowMs + profile.reloadMs;
     // instant refill marker; actual ammo refills when reload completes (see updateWeapon)
   }
@@ -69,7 +76,12 @@ export function updateWeapon(
   // Exponential recoil recovery (~8/s)
   const k = Math.exp(-8 * dtSec);
   state.recoilPitchRad *= k;
-  if (nowMs >= state.reloadingUntilMs && state.reloadingUntilMs > 0 && state.ammo === 0) {
+  if (
+    !profile.unlimitedAmmo &&
+    nowMs >= state.reloadingUntilMs &&
+    state.reloadingUntilMs > 0 &&
+    state.ammo === 0
+  ) {
     state.ammo = profile.magazine;
     state.reloadingUntilMs = -1;
   }
