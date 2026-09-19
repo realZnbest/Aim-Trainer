@@ -760,13 +760,13 @@ export function GameScreen(): ReactElement {
           canvas.setAttribute('aria-label', 'Aim training arena');
         }}
       >
-        <color attach="background" args={['#04070e']} />
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[5, 8, 2]} intensity={0.6} />
-        <gridHelper args={[60, 30, '#2a3c66', '#101a33']} position={[0, -6, -15]} />
+        <color attach="background" args={['#0b1426']} />
+        <ambientLight intensity={1.15} />
+        <directionalLight position={[5, 8, 2]} intensity={1.1} />
+        <gridHelper args={[60, 30, '#4a66a8', '#24365e']} position={[0, -6, -15]} />
         <mesh position={[0, 0, -40]}>
           <planeGeometry args={[80, 40]} />
-          <meshBasicMaterial color="#070d1d" toneMapped={false} />
+          <meshBasicMaterial color="#12203f" toneMapped={false} />
         </mesh>
         <CameraRig run={run} />
         <WeaponModel run={run} visible={!paused} />
