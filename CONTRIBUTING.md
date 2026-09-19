@@ -26,6 +26,8 @@ ESLint + Prettier on staged files.
    - `targetSize`/`targetSizeMax` (meters, radius), `targetShape`
    - `spawnArea`: `box` (halfExtents + distance), `sphere` (radius), `cone` (half-angle)
    - `spawnPattern`: `grid` (needs `gridCols`/`gridRows`) | `random` | `sequence` | `pairs`
+     (`pairs` = duel: one live target pinned left, one dormant pinned right;
+     killing the live one wakes the other side — true switch timing)
    - `movementProfile`: `static` | `linear` | `sine` | `random-walk` | `strafe-ai`
    - `weapon`: `fireMode` (`click` semi / `auto`), `rpm`, `spreadDeg`, `recoilDeg`, `magazine`, `reloadMs`
    - `targetLifetimeMs: 0` = lives until destroyed

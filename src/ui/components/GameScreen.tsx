@@ -95,13 +95,16 @@ function TargetField({
   run,
   maxTargets,
   color,
+  dormantColor = '#1d2a4a',
 }: {
   run: React.MutableRefObject<RunRefs | null>;
   maxTargets: number;
   color: string;
+  dormantColor?: string;
 }): ReactElement {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const tmpColor = useMemo(() => new THREE.Color(), []);
   useFrame(() => {
     const mesh = meshRef.current;
     const r = run.current;
@@ -114,19 +117,23 @@ function TargetField({
         dummy.scale.setScalar(Math.max(0.001, t.radius));
         dummy.updateMatrix();
         mesh.setMatrixAt(i, dummy.matrix);
+        // Live duel targets burn blue; dormant ones sink into the range.
+        mesh.setColorAt(i, tmpColor.set(t.dormant ? dormantColor : color));
       } else {
         dummy.position.set(0, 0, 9999);
         dummy.scale.setScalar(0.0001);
         dummy.updateMatrix();
         mesh.setMatrixAt(i, dummy.matrix);
+        mesh.setColorAt(i, tmpColor.set('#000000'));
       }
     }
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, maxTargets]} frustumCulled={false}>
       <sphereGeometry args={[1, 20, 14]} />
-      <meshBasicMaterial color={color} toneMapped={false} />
+      <meshBasicMaterial color="#ffffff" toneMapped={false} />
     </instancedMesh>
   );
 }

@@ -187,6 +187,65 @@ describe('simulation', () => {
     expect(sim.collectActive(act)).toHaveLength(1); // …and the next is already there
   });
 
+  it('switching duel: exactly one live target, alternating sides on kill', () => {
+    const sw = BUILT_IN_SCENARIOS.find((s) => s.id === 'switching');
+    if (!sw) throw new Error('missing');
+    const sim = new Simulation(scenarioToSpawnConfig(sw), 'duel-seed');
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    const aimAt = (t: { position: { x: number; y: number; z: number } }): [number, number] => {
+      const { x, y, z } = t.position;
+      const dist = Math.hypot(x, y, z);
+      return [Math.atan2(-x, -z), Math.asin(Math.max(-1, Math.min(1, y / dist)))];
+    };
+
+    // Two targets up, opposite sides, exactly one live.
+    let list = sim.collectActive(act);
+    expect(list).toHaveLength(2);
+    expect(list.filter((t) => !t.dormant)).toHaveLength(1);
+    expect(Math.sign(list[0]?.position.x ?? 0)).not.toBe(Math.sign(list[1]?.position.x ?? 0));
+
+    // Shooting the dormant (dim) target is a miss.
+    const dormant = list.find((t) => t.dormant);
+    if (!dormant) throw new Error('no dormant');
+    const [dyaw, dpitch] = aimAt(dormant);
+    expect(sim.fire(sim.time, dyaw, dpitch).hit).toBe(false);
+
+    // Kill the live one → the other side wakes, killed side re-arms dormant.
+    const live = list.find((t) => !t.dormant);
+    if (!live) throw new Error('no live');
+    const liveSide = Math.sign(live.position.x);
+    const [lyaw, lpitch] = aimAt(live);
+    const kill = sim.fire(100, lyaw, lpitch);
+    expect(kill.hit).toBe(true);
+    expect(kill.killed).toBe(true);
+    list = sim.collectActive(act);
+    expect(list).toHaveLength(2);
+    const nowLive = list.filter((t) => !t.dormant);
+    expect(nowLive).toHaveLength(1);
+    // The live target switched sides…
+    expect(Math.sign(nowLive[0]?.position.x ?? 0)).toBe(-liveSide);
+    // …and its clock restarted so reactionMs measures switch time.
+    expect(nowLive[0]?.spawnTimeMs).toBe(100);
+
+    // Deterministic duel for the same seed.
+    const run = (): string => {
+      const s2 = new Simulation(scenarioToSpawnConfig(sw), 'duel-det');
+      const a2: Parameters<Simulation['collectActive']>[0] = [];
+      const log: string[] = [];
+      let yawSweep = 0;
+      for (let i = 0; i < 240 * 4; i++) {
+        s2.step(1000 / 240);
+        yawSweep += 0.002;
+        if (i % 20 === 0) {
+          const sh = s2.fire(s2.time, yawSweep, 0);
+          log.push(`${sh.hit ? 1 : 0}:${s2.collectActive(a2).length}`);
+        }
+      }
+      return log.join(';');
+    };
+    expect(run()).toBe(run());
+  });
+
   it('movement profiles advance without NaN (linear/sine/random-walk/strafe-ai)', () => {
     for (const movement of ['linear', 'sine', 'random-walk', 'strafe-ai'] as const) {
       const sim = new Simulation(

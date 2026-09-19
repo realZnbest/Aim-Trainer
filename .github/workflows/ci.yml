@@ -6,15 +6,16 @@ on:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    # Pinned to 24.04: ubuntu-latest migrates to 26.x (Oct 2026) — pin avoids surprise.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # No `version` key: pnpm/action-setup reads packageManager (pnpm@9.7.0)
+      # from package.json — a single source of truth, no mismatch warnings.
       - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
         with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
@@ -22,7 +23,7 @@ jobs:
       - run: pnpm test:coverage
       - run: pnpm build
       - run: node scripts/bundle-budget.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dist
           path: dist

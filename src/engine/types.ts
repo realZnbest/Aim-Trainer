@@ -44,6 +44,8 @@ export interface TargetState {
   spawnTimeMs: number;
   lifetimeMs: number;
   health: number;
+  /** pairs/duel pattern: only non-dormant targets are hittable */
+  dormant: boolean;
   /** movement bookkeeping */
   seed: number;
   phase: number;

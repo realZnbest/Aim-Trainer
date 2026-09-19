@@ -134,7 +134,8 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
   {
     id: 'switching',
     title: 'Switching',
-    description: 'Two targets alternate left-right. Measures flick time between switches.',
+    description:
+      'Duel: one target is live at a time — kill it and the opposite side wakes up dim-to-blue. Measures true left-right switch time.',
     mode: 'switching',
     durationSec: 60,
     targetSize: 0.32,

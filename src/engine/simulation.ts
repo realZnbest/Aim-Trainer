@@ -114,14 +114,21 @@ export class Simulation {
       spawnTimeMs: 0,
       lifetimeMs: cfg.lifetimeMs,
       health: cfg.health,
+      dormant: false,
       seed: i,
       phase: 0,
       strafeDir: 1,
       strafeTimerMs: 0,
       basePos: { x: 0, y: 0, z: -10 },
     }));
-    // Pre-fill to target count
-    for (let i = 0; i < cfg.count; i++) this.spawn(0);
+    // Pre-fill to target count (pairs pattern gets its own left/right setup)
+    if (cfg.spawnPattern === 'pairs') {
+      const liveSide = this.rng.next() < 0.5 ? -1 : 1;
+      this.spawnPairTarget(liveSide, false, 0);
+      this.spawnPairTarget(-liveSide as -1 | 1, true, 0);
+    } else {
+      for (let i = 0; i < cfg.count; i++) this.spawn(0);
+    }
   }
 
   get time(): number {
@@ -152,6 +159,7 @@ export class Simulation {
     if (!t) return null;
     t.id = this.nextId++;
     t.active = true;
+    t.dormant = false; // pool reuse must never leak duel state into other modes
     t.shape = this.cfg.shape;
     t.radius = this.rng.range(this.cfg.sizeMin, this.cfg.sizeMax);
     randomPointInArea(this.cfg.area, this.rng, t.position);
@@ -180,6 +188,59 @@ export class Simulation {
     return t;
   }
 
+  /**
+   * Pairs/duel spawn: pinned to one side of the lane. Only one target range-wide
+   * is live at a time; the other waits dormant (dimmed, unhittable) until the
+   * live one dies — this forces genuine left-right switching.
+   */
+  private spawnPairTarget(side: -1 | 1, dormant: boolean, nowMs: number): TargetState | null {
+    const t = this.pool.acquire();
+    if (!t) return null;
+    const area = this.cfg.area;
+    const minD = area.minDistance ?? 8;
+    const maxD = area.maxDistance ?? 25;
+    t.id = this.nextId++;
+    t.active = true;
+    t.dormant = dormant;
+    t.shape = this.cfg.shape;
+    t.radius = this.rng.range(this.cfg.sizeMin, this.cfg.sizeMax);
+    t.position = {
+      x: side * this.rng.range(2.5, 6.5),
+      y: this.rng.range(-2.5, 2.5),
+      z: -this.rng.range(minD, maxD),
+    };
+    t.basePos = { ...t.position };
+    t.spawnTimeMs = nowMs;
+    t.lifetimeMs = this.cfg.lifetimeMs;
+    t.health = this.cfg.health;
+    t.phase = this.rng.next() * Math.PI * 2;
+    t.strafeDir = side;
+    t.strafeTimerMs = 0;
+    t.velocity = { x: 0, y: 0, z: 0 };
+    if (!this.spawned.includes(t)) this.spawned.push(t);
+    this.liveCount++;
+    return t;
+  }
+
+  /** Keep the pairs duel intact: one target per side, exactly one live. */
+  private refillPairs(nowMs: number): void {
+    const act: TargetState[] = [];
+    this.collectActive(act);
+    const left = act.find((t) => t.position.x < 0);
+    const right = act.find((t) => t.position.x >= 0);
+    if (!left) this.spawnPairTarget(-1, true, nowMs);
+    if (!right) this.spawnPairTarget(1, true, nowMs);
+    // Exactly one live: if none (e.g. live one expired), wake one up.
+    const live = act.find((t) => !t.dormant);
+    if (!live) {
+      const first = act[0] ?? this.spawned.find((t) => t.active);
+      if (first) {
+        first.dormant = false;
+        first.spawnTimeMs = nowMs;
+      }
+    }
+  }
+
   private despawn(t: TargetState): void {
     t.active = false;
     this.pool.release(t);
@@ -204,6 +265,10 @@ export class Simulation {
         continue;
       }
       this.moveTarget(t, dtSec, now);
+    }
+    if (this.cfg.spawnPattern === 'pairs') {
+      this.refillPairs(now);
+      return;
     }
     // Refill: instant when no delay is configured; otherwise each despawn
     // scheduled exactly one replacement — consume it only once due.
@@ -312,7 +377,7 @@ export class Simulation {
     let bestErr = Infinity;
 
     for (const t of this.spawned) {
-      if (!t.active) continue;
+      if (!t.active || t.dormant) continue; // dormant duel targets are unhittable
       const dx = t.position.x;
       const dy = t.position.y;
       const dz = t.position.z;
@@ -356,7 +421,21 @@ export class Simulation {
     };
     if (killed) {
       this.events.onKill?.(best, shotTimeMs);
-      this.despawn(best);
+      if (this.cfg.spawnPattern === 'pairs') {
+        // Duel switch: wake the waiting side, re-arm the killed side dormant.
+        const killedSide = best.position.x < 0 ? -1 : 1;
+        this.despawn(best);
+        for (const t of this.spawned) {
+          if (t.active && t !== best) {
+            t.dormant = false;
+            // reactionMs of the next kill now measures true switch time.
+            t.spawnTimeMs = shotTimeMs;
+          }
+        }
+        this.spawnPairTarget(killedSide, true, shotTimeMs);
+      } else {
+        this.despawn(best);
+      }
     }
     this.events.onShot?.(shot);
     return shot;
