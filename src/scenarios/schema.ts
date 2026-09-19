@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 export const targetShapeSchema = z.enum(['sphere', 'capsule', 'plane']);
 export const spawnVolumeSchema = z.enum(['box', 'sphere', 'cone']);
+const spawnPatternSchema = z.enum(['grid', 'random', 'sequence', 'pairs', 'switch']);
 export const movementProfileSchema = z.enum([
   'static',
   'linear',
@@ -60,7 +61,7 @@ export const scenarioSchema = z.object({
   targetSizeMax: z.number().positive().default(0.3),
   targetShape: targetShapeSchema.default('sphere'),
   spawnArea: spawnAreaSchema,
-  spawnPattern: z.enum(['grid', 'random', 'sequence', 'pairs']).default('random'),
+  spawnPattern: spawnPatternSchema.default('random'),
   targetCount: z.number().int().min(1).max(64).default(3),
   targetLifetimeMs: z.number().int().min(0).max(60_000).default(0),
   /** Silent gap before a replacement target spawns (reactive drills). Omitted = instant refill. */

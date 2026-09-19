@@ -246,6 +246,75 @@ describe('simulation', () => {
     expect(run()).toBe(run());
   });
 
+  it('target-switching: replacements land far from the kill (long flicks)', () => {
+    const tss = BUILT_IN_SCENARIOS.find((s) => s.id === 'target-switching-speed');
+    if (!tss) throw new Error('missing');
+    const sim = new Simulation(scenarioToSpawnConfig(tss), 'switch-seed');
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    expect(sim.collectActive(act)).toHaveLength(5);
+
+    const gaps: number[] = [];
+    for (let k = 0; k < 8; k++) {
+      const list = sim.collectActive(act);
+      const known = new Set(list.map((t) => t.id));
+      const victim = list[0];
+      if (!victim) throw new Error('no target');
+      const grave = { ...victim.position };
+      const { x, y, z } = victim.position;
+      const dist = Math.hypot(x, y, z);
+      const shot = sim.fire(
+        sim.time + k,
+        Math.atan2(-x, -z),
+        Math.asin(Math.max(-1, Math.min(1, y / dist))),
+      );
+      expect(shot.hit).toBe(true);
+      // Count holds at 5 — the replacement spawned synchronously with the kill.
+      const after = sim.collectActive(act);
+      expect(after).toHaveLength(5);
+      // The newcomer (unknown id) must be far from the kill point.
+      const newcomer = after.find((t) => !known.has(t.id));
+      if (!newcomer) throw new Error('no replacement');
+      gaps.push(
+        Math.hypot(
+          newcomer.position.x - grave.x,
+          newcomer.position.y - grave.y,
+          newcomer.position.z - grave.z,
+        ),
+      );
+    }
+    // Box is 12m wide: farthest-of-6 candidates must average a long flick.
+    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    expect(Math.min(...gaps)).toBeGreaterThan(4);
+    expect(avg).toBeGreaterThan(7);
+
+    // Deterministic for the same seed.
+    const run = (): string => {
+      const s2 = new Simulation(scenarioToSpawnConfig(tss), 'switch-det');
+      const a2: Parameters<Simulation['collectActive']>[0] = [];
+      const log: string[] = [];
+      for (let i = 0; i < 240 * 3; i++) {
+        s2.step(1000 / 240);
+        if (i % 30 === 0) {
+          const l = s2.collectActive(a2);
+          const v = l[0];
+          if (v) {
+            const { x, y, z } = v.position;
+            const d = Math.hypot(x, y, z);
+            s2.fire(s2.time, Math.atan2(-x, -z), Math.asin(Math.max(-1, Math.min(1, y / d))));
+          }
+          log.push(
+            s2
+              .collectActive(a2)
+              .map((t) => t.position.x.toFixed(2))
+              .join(','),
+          );
+        }
+      }
+      return log.join(';');
+    };
+    expect(run()).toBe(run());
+  });
+
   it('movement profiles advance without NaN (linear/sine/random-walk/strafe-ai)', () => {
     for (const movement of ['linear', 'sine', 'random-walk', 'strafe-ai'] as const) {
       const sim = new Simulation(

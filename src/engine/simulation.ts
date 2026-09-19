@@ -18,6 +18,7 @@ import type {
   MovementProfile,
   ShotEvent,
   SpawnArea,
+  SpawnPattern,
   TargetShape,
   TargetState,
   Vec3,
@@ -41,7 +42,7 @@ export interface SpawnConfig {
   spawnDelayMinMs?: number;
   spawnDelayMaxMs?: number;
   /** grid snap for gridshot pattern */
-  spawnPattern?: 'grid' | 'random' | 'sequence' | 'pairs';
+  spawnPattern?: SpawnPattern;
   gridCols?: number;
   gridRows?: number;
 }
@@ -154,7 +155,7 @@ export class Simulation {
     return min + this.rng.next() * (max - min);
   }
 
-  private spawn(nowMs: number): TargetState | null {
+  private spawn(nowMs: number, avoid?: Vec3): TargetState | null {
     const t = this.pool.acquire();
     if (!t) return null;
     t.id = this.nextId++;
@@ -172,6 +173,29 @@ export class Simulation {
       const cy = this.rng.int(0, rows - 1);
       t.position.x = cols === 1 ? 0 : -h.x + (2 * h.x * cx) / (cols - 1);
       t.position.y = rows === 1 ? 0 : h.y - (2 * h.y * cy) / (rows - 1);
+    }
+    // Switch pattern: replacement must land far from the kill — sample
+    // candidates and keep the farthest so every kill forces a long flick.
+    if (this.cfg.spawnPattern === 'switch' && avoid) {
+      const cand: Vec3 = { x: 0, y: 0, z: 0 };
+      let bestD = -Infinity;
+      const best: Vec3 = { ...t.position };
+      for (let i = 0; i < 6; i++) {
+        randomPointInArea(this.cfg.area, this.rng, cand);
+        const dx = cand.x - avoid.x;
+        const dy = cand.y - avoid.y;
+        const dz = cand.z - avoid.z;
+        const d = dx * dx + dy * dy + dz * dz;
+        if (d > bestD) {
+          bestD = d;
+          best.x = cand.x;
+          best.y = cand.y;
+          best.z = cand.z;
+        }
+      }
+      t.position.x = best.x;
+      t.position.y = best.y;
+      t.position.z = best.z;
     }
     t.basePos = { ...t.position };
     t.spawnTimeMs = nowMs;
@@ -433,6 +457,12 @@ export class Simulation {
           }
         }
         this.spawnPairTarget(killedSide, true, shotTimeMs);
+      } else if (this.cfg.spawnPattern === 'switch') {
+        // Target-switching: the replacement spawns far from the kill point,
+        // so the next shot is always a long flick across the field.
+        const grave: Vec3 = { ...best.position };
+        this.despawn(best);
+        this.spawn(shotTimeMs, grave);
       } else {
         this.despawn(best);
       }

@@ -6,6 +6,7 @@
 export type Vec3 = { x: number; y: number; z: number };
 
 export type TargetShape = 'sphere' | 'capsule' | 'plane';
+export type SpawnPattern = 'grid' | 'random' | 'sequence' | 'pairs' | 'switch';
 export type SpawnVolume = 'box' | 'sphere' | 'cone';
 export type MovementProfile = 'static' | 'linear' | 'sine' | 'random-walk' | 'strafe-ai';
 export type FireMode = 'click' | 'auto';

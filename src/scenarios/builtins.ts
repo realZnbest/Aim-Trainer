@@ -218,14 +218,15 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
   {
     id: 'target-switching-speed',
     title: 'Target Switching Speed',
-    description: 'Many targets on screen at once. Prioritize and clear them fast.',
+    description:
+      'Five targets up at once — every kill respawns far from where you shot, forcing a long flick across the field. Prioritize and clear.',
     mode: 'target-switching-speed',
     durationSec: 60,
     targetSize: 0.3,
     targetSizeMax: 0.3,
     targetShape: 'sphere',
     spawnArea: { ...box },
-    spawnPattern: 'random',
+    spawnPattern: 'switch',
     targetCount: 5,
     targetLifetimeMs: 0,
     movementProfile: 'static',

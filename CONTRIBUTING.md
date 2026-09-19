@@ -27,7 +27,9 @@ ESLint + Prettier on staged files.
    - `spawnArea`: `box` (halfExtents + distance), `sphere` (radius), `cone` (half-angle)
    - `spawnPattern`: `grid` (needs `gridCols`/`gridRows`) | `random` | `sequence` | `pairs`
      (`pairs` = duel: one live target pinned left, one dormant pinned right;
-     killing the live one wakes the other side — true switch timing)
+     killing the live one wakes the other side — true switch timing) |
+     `switch` (target-switching: replacement spawns farthest from the kill —
+     every shot is a long flick)
    - `movementProfile`: `static` | `linear` | `sine` | `random-walk` | `strafe-ai`
    - `weapon`: `fireMode` (`click` semi / `auto`), `rpm`, `spreadDeg`, `recoilDeg`, `magazine`, `reloadMs`
    - `targetLifetimeMs: 0` = lives until destroyed

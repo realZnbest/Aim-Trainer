@@ -79,3 +79,10 @@ Reflex schedules each replacement after a seeded-random silent gap
 `reactionMs` measures true stimulus → response. The delay queue lives in the
 sim (deterministic, replay-safe); omitting the fields preserves instant refill
 for every other mode.
+
+## D-15: Target Switching Speed forces the long flick
+
+Five static targets like Gridshot was a duplicate. TSS now uses spawnPattern
+`switch`: each kill respawns synchronously at the farthest of 6 seeded
+candidates from the kill point (avg >7m in a 12m lane), so the next shot is
+always a cross-field flick — prioritization + switching, never nearby taps.
