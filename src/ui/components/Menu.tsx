@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import { Button, Chip, Meter, ReticleMark } from './primitives';
+import { DrillPreview } from './DrillPreview';
 
 /** Drill dossier metadata: focus + difficulty are authored coaching facts. */
 const DOSSIER: Record<string, { focus: string; difficulty: number }> = {
@@ -74,31 +75,36 @@ export function Menu(): ReactElement {
           return (
             <li
               key={s.id}
-              className="flex flex-col rounded-none border border-linesoft bg-panel p-5 transition-colors hover:border-brand/60 hover:bg-raised/60"
+              className="flex flex-col overflow-hidden rounded-none border border-linesoft bg-panel transition-colors hover:border-brand/60 hover:bg-raised/60"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-display text-2xl font-bold text-faint tnum">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <Chip tone="steel">{d.focus}</Chip>
+              <div className="border-b border-linesoft bg-abyss/60">
+                <DrillPreview mode={s.mode} seed={i} />
               </div>
-              <div className="mt-3 font-display text-lg font-semibold leading-tight">
-                {s.title}
-              </div>
-              <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] leading-snug text-mist">
-                {s.description}
-              </p>
-              <p className="mt-3 border-t border-linesoft pt-3 font-mono text-[11px] uppercase tracking-wider text-faint tnum">
-                {s.durationSec}s · {s.targetCount} tgt · {s.movementProfile}
-              </p>
-              <div className="mt-3 flex items-center justify-between">
-                <Meter
-                  value={d.difficulty}
-                  label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
-                />
-                <Button onClick={() => startScenario(s.id)} ariaLabel={`start ${s.title}`}>
-                  {t('start')} →
-                </Button>
+              <div className="flex flex-1 flex-col p-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-2xl font-bold text-faint tnum">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <Chip tone="steel">{d.focus}</Chip>
+                </div>
+                <div className="mt-3 font-display text-lg font-semibold leading-tight">
+                  {s.title}
+                </div>
+                <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] leading-snug text-mist">
+                  {s.description}
+                </p>
+                <p className="mt-3 border-t border-linesoft pt-3 font-mono text-[11px] uppercase tracking-wider text-faint tnum">
+                  {s.durationSec}s · {s.targetCount} tgt · {s.movementProfile}
+                </p>
+                <div className="mt-3 flex items-center justify-between">
+                  <Meter
+                    value={d.difficulty}
+                    label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
+                  />
+                  <Button onClick={() => startScenario(s.id)} ariaLabel={`start ${s.title}`}>
+                    {t('start')} →
+                  </Button>
+                </div>
               </div>
             </li>
           );

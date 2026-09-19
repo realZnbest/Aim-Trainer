@@ -32,10 +32,21 @@ export function App(): ReactElement {
     void i18n.changeLanguage(language);
   }, [language, i18n]);
 
-  // Keyboard nav: 1-5 quick switch outside game
+  // Keyboard nav: 1-3 quick switch outside game.
+  // Ignored while typing in form fields so settings inputs accept digits.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (useApp.getState().view === 'game') return;
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === 'INPUT' ||
+          el.tagName === 'SELECT' ||
+          el.tagName === 'TEXTAREA' ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === '1') useApp.getState().setView('menu');
       if (e.key === '2') useApp.getState().setView('dashboard');
       if (e.key === '3') useApp.getState().setView('settings');

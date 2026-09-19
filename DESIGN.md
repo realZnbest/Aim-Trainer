@@ -38,6 +38,9 @@ never by category.
 - Drill grid (menu): square 90° cards in a tidy 3-col grid — index numeral,
   focus chip, title, 2-line brief, spec strip, difficulty meter + start.
   Hover: pink hairline border. Dashboard keeps a compact session ledger.
+- `DrillPreview` — animated schematic per drill (spawn rhythm, movement
+  profile, target count). One shared rAF loop, offscreen previews paused,
+  static frame under reduced-motion. Schematic, never footage.
 - Results debrief: pink display score, tier chip, hairline ledger rows,
   numbered findings with severity dots. One authored motion: `rise` reveal
   (staggered, reduced-motion safe).
