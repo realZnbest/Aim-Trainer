@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
+import { ArenaEnvironment } from './ArenaEnvironment';
 import {
   InputManager,
   Simulation,
@@ -754,7 +755,7 @@ export function GameScreen(): ReactElement {
       <Canvas
         gl={{ antialias: video.antialias, powerPreference: 'high-performance' }}
         dpr={video.resolutionScale}
-        camera={{ fov: video.fov, near: 0.1, far: 200, position: [0, 0, 0] }}
+        camera={{ fov: video.fov, near: 0.1, far: 600, position: [0, 0, 0] }}
         onCreated={({ gl }) => {
           const canvas = gl.domElement;
           canvas.setAttribute('aria-label', 'Aim training arena');
@@ -763,11 +764,9 @@ export function GameScreen(): ReactElement {
         <color attach="background" args={['#0b1426']} />
         <ambientLight intensity={1.15} />
         <directionalLight position={[5, 8, 2]} intensity={1.1} />
-        <gridHelper args={[60, 30, '#4a66a8', '#24365e']} position={[0, -6, -15]} />
-        <mesh position={[0, 0, -40]}>
-          <planeGeometry args={[80, 40]} />
-          <meshBasicMaterial color="#12203f" toneMapped={false} />
-        </mesh>
+        {/* Enclosed training hall: sized from the scenario's spawn volume so the
+            target lane is never occluded and nothing floats. */}
+        <ArenaEnvironment scenario={scenario} />
         <CameraRig run={run} />
         <WeaponModel run={run} visible={!paused} />
         {/* Targets stay range-blue (#3772A4) — decoupled from crosshair color
