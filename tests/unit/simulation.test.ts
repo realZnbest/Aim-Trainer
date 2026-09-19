@@ -72,17 +72,22 @@ describe('simulation', () => {
     expect(miss.hit).toBe(false);
   });
 
-  it('target expiry fires onExpire and refills (reflex lifetimes)', () => {
+  it('target expiry fires onExpire and refills after the gap (reflex lifetimes)', () => {
     const reflex = BUILT_IN_SCENARIOS.find((s) => s.id === 'reflex-reactive');
     if (!reflex) throw new Error('missing');
     let expired = 0;
     const sim = new Simulation(scenarioToSpawnConfig(reflex), 'expire-seed', {
       onExpire: () => expired++,
     });
-    for (let i = 0; i < 240 * 5; i++) sim.step(1000 / 240); // 5s > 2500ms lifetime
-    expect(expired).toBeGreaterThan(0);
     const act: Parameters<Simulation['collectActive']>[0] = [];
-    expect(sim.collectActive(act).length).toBe(1); // refilled
+    let maxActive = 0;
+    for (let i = 0; i < 240 * 30; i++) {
+      sim.step(1000 / 240); // 30s ≫ delay + lifetime cycles
+      const n = sim.collectActive(act).length;
+      if (n > maxActive) maxActive = n;
+    }
+    expect(expired).toBeGreaterThan(0);
+    expect(maxActive).toBe(1); // replacements keep arriving between silent gaps
   });
 
   it('linear bounce rebase keeps targets in bounds at high speed', () => {
@@ -117,6 +122,71 @@ describe('simulation', () => {
       expect(sim.collectActive(act)).toHaveLength(3);
     }
   });
+  it('reflex: replacement arrives after the silent gap, not instantly', () => {
+    const reflex = BUILT_IN_SCENARIOS.find((s) => s.id === 'reflex-reactive');
+    if (!reflex) throw new Error('missing');
+    const sim = new Simulation(scenarioToSpawnConfig(reflex), 'gap-seed');
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    // First stimulus is present immediately…
+    expect(sim.collectActive(act)).toHaveLength(1);
+    // …kill it by firing at its exact position…
+    const target = act[0];
+    if (!target) throw new Error('no target');
+    const { x, y, z } = target.position;
+    const dist = Math.hypot(x, y, z);
+    const shot = sim.fire(
+      sim.time,
+      Math.atan2(-x, -z),
+      Math.asin(Math.max(-1, Math.min(1, y / dist))),
+    );
+    expect(shot.hit).toBe(true);
+    // …and the screen stays empty through the minimum 800ms gap.
+    for (let i = 0; i < 100; i++) sim.step(1000 / 240); // ~417ms
+    expect(sim.collectActive(act)).toHaveLength(0);
+    // The replacement must arrive inside the [800, 2400]ms window.
+    let seenAt = -1;
+    for (let i = 0; i < 240 * 4; i++) {
+      sim.step(1000 / 240);
+      if (seenAt < 0 && sim.collectActive(act).length > 0) seenAt = sim.time;
+    }
+    expect(seenAt).toBeGreaterThanOrEqual(800);
+    expect(seenAt).toBeLessThanOrEqual(2400);
+  });
+
+  it('reflex gap schedule is deterministic for the same seed', () => {
+    const reflex = BUILT_IN_SCENARIOS.find((s) => s.id === 'reflex-reactive');
+    if (!reflex) throw new Error('missing');
+    const run = (): string => {
+      const sim = new Simulation(scenarioToSpawnConfig(reflex), 'gap-det');
+      const act: Parameters<Simulation['collectActive']>[0] = [];
+      const log: string[] = [];
+      for (let i = 0; i < 240 * 6; i++) {
+        sim.step(1000 / 240);
+        if (i % 30 === 0) {
+          const list = sim.collectActive(act);
+          log.push(list.map((t) => `${t.id}:${t.position.x.toFixed(3)}`).join('|'));
+        }
+      }
+      return log.join(';');
+    };
+    expect(run()).toBe(run());
+  });
+
+  it('spidershot refills instantly (no silent gap)', () => {
+    const spider = BUILT_IN_SCENARIOS.find((s) => s.id === 'spidershot');
+    if (!spider) throw new Error('missing');
+    const sim = new Simulation(scenarioToSpawnConfig(spider), 'instant-seed');
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    expect(sim.collectActive(act)).toHaveLength(1);
+    const target = act[0];
+    if (!target) throw new Error('no target');
+    const { x, y, z } = target.position;
+    const dist = Math.hypot(x, y, z);
+    sim.fire(sim.time, Math.atan2(-x, -z), Math.asin(Math.max(-1, Math.min(1, y / dist))));
+    sim.step(1000 / 240); // a single tick…
+    expect(sim.collectActive(act)).toHaveLength(1); // …and the next is already there
+  });
+
   it('movement profiles advance without NaN (linear/sine/random-walk/strafe-ai)', () => {
     for (const movement of ['linear', 'sine', 'random-walk', 'strafe-ai'] as const) {
       const sim = new Simulation(

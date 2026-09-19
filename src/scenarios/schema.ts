@@ -63,6 +63,9 @@ export const scenarioSchema = z.object({
   spawnPattern: z.enum(['grid', 'random', 'sequence', 'pairs']).default('random'),
   targetCount: z.number().int().min(1).max(64).default(3),
   targetLifetimeMs: z.number().int().min(0).max(60_000).default(0),
+  /** Silent gap before a replacement target spawns (reactive drills). Omitted = instant refill. */
+  spawnDelayMinMs: z.number().int().min(0).max(10_000).optional(),
+  spawnDelayMaxMs: z.number().int().min(0).max(10_000).optional(),
   movementProfile: movementProfileSchema.default('static'),
   minSpeed: z.number().min(0).max(60).default(0),
   maxSpeed: z.number().min(0).max(60).default(0),

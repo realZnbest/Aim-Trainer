@@ -70,3 +70,12 @@ opt-in via `window.__SENTRY_DSN__`.
 
 Touch aiming is deliberately not implemented; coarse-pointer devices get an
 informative blocker (WCAG-friendly) instead of a compromised experience.
+
+## D-14: Reflex ≠ Spidershot — the silent gap is the mechanic
+
+Spidershot keeps a target always up (instant refill → acquisition + flick).
+Reflex schedules each replacement after a seeded-random silent gap
+(`spawnDelayMinMs/MaxMs`, 0.8–2.4s) with a short 1.5s lifetime, so
+`reactionMs` measures true stimulus → response. The delay queue lives in the
+sim (deterministic, replay-safe); omitting the fields preserves instant refill
+for every other mode.

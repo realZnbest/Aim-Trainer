@@ -48,7 +48,7 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
     id: 'spidershot',
     title: 'Spidershot',
     description:
-      'Single target spawns at random positions in the FOV cone. Measures reaction + accuracy.',
+      'A target is always present — kill it and the next appears instantly. Measures target acquisition + flick accuracy.',
     mode: 'spidershot',
     durationSec: 60,
     targetSize: 0.35,
@@ -57,7 +57,7 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
     spawnArea: { ...cone },
     spawnPattern: 'random',
     targetCount: 1,
-    targetLifetimeMs: 4000,
+    targetLifetimeMs: 5000,
     movementProfile: 'static',
     minSpeed: 0,
     maxSpeed: 0,
@@ -163,7 +163,8 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
   {
     id: 'reflex-reactive',
     title: 'Reflex / Reactive',
-    description: 'Targets pop up at random delays. Pure reaction time (ms).',
+    description:
+      'The screen stays empty, then a target pops after a random silent delay (0.8–2.4s). Hit it inside a short 1.5s window. Pure stimulus → response time.',
     mode: 'reflex',
     durationSec: 60,
     targetSize: 0.34,
@@ -172,7 +173,9 @@ export const BUILT_IN_SCENARIOS: Scenario[] = [
     spawnArea: { ...cone },
     spawnPattern: 'random',
     targetCount: 1,
-    targetLifetimeMs: 2500,
+    targetLifetimeMs: 1500,
+    spawnDelayMinMs: 800,
+    spawnDelayMaxMs: 2400,
     movementProfile: 'static',
     minSpeed: 0,
     maxSpeed: 0,

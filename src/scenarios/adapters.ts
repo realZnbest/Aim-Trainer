@@ -29,6 +29,8 @@ export function scenarioToSpawnConfig(s: Scenario): SpawnConfig {
     spawnPattern: s.spawnPattern,
     gridCols: s.gridCols,
     gridRows: s.gridRows,
+    spawnDelayMinMs: s.spawnDelayMinMs,
+    spawnDelayMaxMs: s.spawnDelayMaxMs,
   };
 }
 

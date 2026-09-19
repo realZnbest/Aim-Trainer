@@ -29,6 +29,9 @@ ESLint + Prettier on staged files.
    - `movementProfile`: `static` | `linear` | `sine` | `random-walk` | `strafe-ai`
    - `weapon`: `fireMode` (`click` semi / `auto`), `rpm`, `spreadDeg`, `recoilDeg`, `magazine`, `reloadMs`
    - `targetLifetimeMs: 0` = lives until destroyed
+   - `spawnDelayMinMs`/`spawnDelayMaxMs`: silent gap before a replacement spawns
+     (reactive drills like Reflex — screen stays empty, then stimulus pops).
+     `0` = instant refill (duels like Spidershot where a target is always up)
    - `health: 999` + `auto` weapon = tracking drill (time-on-target scoring)
    - `difficultyScaling`: adaptive size/speed every N seconds
 4. Add to `BUILT_IN_SCENARIOS`, run `pnpm test` (built-ins self-validate in CI).

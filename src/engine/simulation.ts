@@ -37,6 +37,9 @@ export interface SpawnConfig {
   sizeMax: number;
   headshotMultiplier: number;
   weapon: WeaponProfile;
+  /** Silent gap before a replacement spawns (reactive drills). 0/undefined = instant refill. */
+  spawnDelayMinMs?: number;
+  spawnDelayMaxMs?: number;
   /** grid snap for gridshot pattern */
   spawnPattern?: 'grid' | 'random' | 'sequence' | 'pairs';
   gridCols?: number;
@@ -134,6 +137,15 @@ export class Simulation {
   }
 
   private spawned: TargetState[] = [];
+  /** Scheduled replacement timestamps (reactive spawn delays). Consumed in order. */
+  private spawnQueue: number[] = [];
+
+  private delayMs(): number {
+    const min = this.cfg.spawnDelayMinMs ?? 0;
+    const max = Math.max(min, this.cfg.spawnDelayMaxMs ?? 0);
+    if (max <= 0) return 0;
+    return min + this.rng.next() * (max - min);
+  }
 
   private spawn(nowMs: number): TargetState | null {
     const t = this.pool.acquire();
@@ -172,6 +184,9 @@ export class Simulation {
     t.active = false;
     this.pool.release(t);
     this.liveCount--;
+    // Reactive drills: the replacement arrives after a silent gap, not instantly.
+    const d = this.delayMs();
+    if (d > 0) this.spawnQueue.push(this.timeMs + d);
   }
 
   /** Advance simulation by dt. Maintains target count + lifetimes + movement. */
@@ -190,11 +205,19 @@ export class Simulation {
       }
       this.moveTarget(t, dtSec, now);
     }
-    // Refill
+    // Refill: instant when no delay is configured; otherwise each despawn
+    // scheduled exactly one replacement — consume it only once due.
+    const delayed = (this.cfg.spawnDelayMaxMs ?? 0) > 0;
     let active = 0;
     for (const t of this.spawned) if (t.active) active++;
     let guard = 0;
     while (active < this.cfg.count && guard++ < 16) {
+      if (delayed) {
+        // Queue holds non-decreasing timestamps; spawn only once one is due.
+        const next = this.spawnQueue[0];
+        if (next === undefined || next > now) break;
+        this.spawnQueue.shift();
+      }
       if (!this.spawn(now)) break;
       active++;
     }
