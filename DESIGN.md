@@ -35,10 +35,9 @@ never by category.
 - `Chip` — small pills for tags only. `Meter` — segmented difficulty ticks.
 - `.field` — one dark-steel treatment for all inputs/selects; pink focus border.
 - `Check` — authored switch (pink on, steel off), `role="switch"`.
-- Drill ledger rows (menu, dashboard ledger): code · title + focus chip ·
-  spec line · meter · start. Hover: 2px pink rail sweep (`drill-row`).
-- Range ruler (menu): distance ticks in six labeled segments — the sport's own
-  measuring tool, not decoration.
+- Drill grid (menu): square 90° cards in a tidy 3-col grid — index numeral,
+  focus chip, title, 2-line brief, spec strip, difficulty meter + start.
+  Hover: pink hairline border. Dashboard keeps a compact session ledger.
 - Results debrief: pink display score, tier chip, hairline ledger rows,
   numbered findings with severity dots. One authored motion: `rise` reveal
   (staggered, reduced-motion safe).
