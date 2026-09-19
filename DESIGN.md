@@ -13,12 +13,12 @@ never by category.
 - Grounds: `abyss #04070e` · `deep #070c17` · `panel #0a1120` · `raised #0e1628`
 - Hairlines (blue-tinted steel, never gray): `line #22304e` · `linesoft #141e36`
 - Ink (tinted from the ground): `ink #e9effc` · `mist #93a3c4` · `faint #5d6d92`
-- Brand pink (single action color): `#e7548f` · hover `#f06ba1` · on-dark
-  large text `#f4a3c3` · dark text on pink `#1c0712`
+- Brand red (single action color): `#ff4655` · hover `#ff626e` · on-dark
+  large text `#ffa3ac` · dark text on red `#22060a`
 - Steel blue (info, range markings): `#6ea8ff` · deep `#3b5fa0`
-- Semantics: `danger #e56a80` · `success #5fce8f` · `warn #e0b25f`
+- Semantics: `danger #e7193f` · `success #5fce8f` · `warn #e0b25f`
 - Tiers ramp slate → pink: Bronze `#c08b5c` · Silver `#9fb0cc` · Gold `#e3b95c` ·
-  Platinum `#a9c6ff` · Diamond `#7fb2ff` · Master `#f06ba1` · Grandmaster `#ff8fbf`
+  Platinum `#a9c6ff` · Diamond `#7fb2ff` · Master `#ff626e` · Grandmaster `#ff8aa6`
 
 ## Type
 

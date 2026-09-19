@@ -31,8 +31,8 @@ body {
 }
 
 ::selection {
-  background: #e7548f;
-  color: #1c0712;
+  background: #ff4655;
+  color: #22060a;
 }
 
 /* Tabular numerals for every measurement readout */
@@ -48,7 +48,7 @@ canvas {
 
 /* Keyboard focus: pink ring, always visible (WCAG 2.1 AA) */
 :focus-visible {
-  outline: 2px solid #f06ba1;
+  outline: 2px solid #ff626e;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -80,7 +80,7 @@ canvas {
   border-color: #2e4066;
 }
 .field:focus {
-  border-color: #e7548f;
+  border-color: #ff4655;
   outline: none;
 }
 select.field option {
@@ -113,7 +113,7 @@ select.field option {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #e7548f;
+  background: #ff4655;
   transform: scaleY(0);
   transform-origin: top;
   transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);

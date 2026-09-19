@@ -123,7 +123,7 @@ export function Dashboard(): ReactElement {
                   <Line
                     type="monotone"
                     dataKey="score"
-                    stroke="#f06ba1"
+                    stroke="#ff626e"
                     dot={false}
                     strokeWidth={2.5}
                   />

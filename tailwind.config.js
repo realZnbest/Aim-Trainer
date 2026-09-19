@@ -17,12 +17,12 @@ export default {
         ink: '#e9effc',
         mist: '#93a3c4',
         faint: '#5d6d92',
-        // Brand pink — the single action color. No glow, never gradient text.
+// Brand red — the single action color. No glow, never gradient text.
         brand: {
-          DEFAULT: '#e7548f',
-          strong: '#f06ba1',
-          soft: '#f4a3c3',
-          ink: '#1c0712',
+          DEFAULT: '#ff4655',
+          strong: '#ff626e',
+          soft: '#ffa3ac',
+          ink: '#22060a',
         },
         // Steel blue — information, secondary highlights, range markings
         steel: {
@@ -30,7 +30,7 @@ export default {
           deep: '#3b5fa0',
           ink: '#06101f',
         },
-        danger: '#e56a80',
+        danger: '#e7193f',
         success: '#5fce8f',
         warn: '#e0b25f',
       },

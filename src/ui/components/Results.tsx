@@ -10,9 +10,9 @@ import { cn } from '../cn';
 function tierStyle(tier: string): { tone: 'pink' | 'steel' | 'amber' | 'mute'; dot: string } {
   switch (tier) {
     case 'Grandmaster':
-      return { tone: 'pink', dot: '#ff8fbf' };
+      return { tone: 'pink', dot: '#ff8aa6' };
     case 'Master':
-      return { tone: 'pink', dot: '#f06ba1' };
+      return { tone: 'pink', dot: '#ff626e' };
     case 'Diamond':
       return { tone: 'steel', dot: '#7fb2ff' };
     case 'Platinum':

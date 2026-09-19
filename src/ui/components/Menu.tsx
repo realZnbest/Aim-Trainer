@@ -69,7 +69,7 @@ export function Menu(): ReactElement {
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-center justify-between">
-                  <span className="font-display text-2xl font-bold text-faint tnum">
+                  <span className="font-display text-2xl font-bold text-brand tnum">
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <Chip tone="steel">{d.focus}</Chip>
@@ -84,10 +84,15 @@ export function Menu(): ReactElement {
                   {s.durationSec}s · {s.targetCount} tgt · {s.movementProfile}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
-                  <Meter
-                    value={d.difficulty}
-                    label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
-                  />
+                  <span className="inline-flex items-center gap-2">
+                    <Meter
+                      value={d.difficulty}
+                      label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
+                    />
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-faint">
+                      Difficulty
+                    </span>
+                  </span>
                   <Button
                     onClick={() => (s.id === 'sandbox' ? setView('sandbox') : startScenario(s.id))}
                     ariaLabel={s.id === 'sandbox' ? 'customize sandbox' : `start ${s.title}`}
