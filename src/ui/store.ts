@@ -8,7 +8,7 @@ import type { Scenario } from '@/scenarios/schema';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import type { SessionRecord } from '@/persistence/db';
 
-export type View = 'menu' | 'game' | 'results' | 'dashboard' | 'settings';
+export type View = 'menu' | 'game' | 'results' | 'dashboard' | 'settings' | 'sandbox';
 
 export interface CrosshairSettings {
   color: string;
@@ -48,6 +48,8 @@ export interface LastResult {
 interface AppState {
   view: View;
   scenarioId: string;
+  /** Authored drill from the sandbox editor (null = use built-in by scenarioId). */
+  custom: Scenario | null;
   runId: number;
   consent: 'unknown' | 'accepted' | 'declined';
   lastResult: LastResult | null;
@@ -61,6 +63,7 @@ interface AppState {
 
   setView: (v: View) => void;
   startScenario: (id: string) => void;
+  startCustom: (s: Scenario) => void;
   setResult: (r: LastResult) => void;
   setConsent: (c: AppState['consent']) => void;
   patchCrosshair: (p: Partial<CrosshairSettings>) => void;
@@ -75,6 +78,7 @@ interface AppState {
 export const useApp = create<AppState>((set, get) => ({
   view: 'menu',
   scenarioId: 'gridshot',
+  custom: null,
   runId: 0,
   consent: 'unknown',
   lastResult: null,
@@ -111,7 +115,10 @@ export const useApp = create<AppState>((set, get) => ({
   colorblind: 'none',
 
   setView: (view) => set({ view }),
-  startScenario: (scenarioId) => set((s) => ({ scenarioId, view: 'game', runId: s.runId + 1 })),
+  startScenario: (scenarioId) =>
+    set((s) => ({ scenarioId, custom: null, view: 'game', runId: s.runId + 1 })),
+  startCustom: (custom) =>
+    set((s) => ({ scenarioId: custom.id, custom, view: 'game', runId: s.runId + 1 })),
   setResult: (lastResult) => set({ lastResult, view: 'results' }),
   setConsent: (consent) => set({ consent }),
   patchCrosshair: (p) => set((s) => ({ crosshair: { ...s.crosshair, ...p } })),
@@ -121,6 +128,8 @@ export const useApp = create<AppState>((set, get) => ({
   setVolumes: (masterVolume, hitVolume) => set({ masterVolume, hitVolume }),
   setColorblind: (colorblind) => set({ colorblind }),
   scenario: () => {
+    const custom = get().custom;
+    if (custom) return custom;
     const id = get().scenarioId;
     const found = BUILT_IN_SCENARIOS.find((s) => s.id === id);
     if (!found) throw new Error(`Unknown scenario: ${id}`);

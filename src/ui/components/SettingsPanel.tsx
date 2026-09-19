@@ -1,78 +1,10 @@
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { Button, Card, ReticleMark } from './primitives';
+import { Check, Num, Row } from './fields';
 import { fromCm360, toCm360 } from '@/engine/sensitivity';
 import { downloadText } from '../export';
-
-function Row({ label, children }: { label: string; children: ReactNode }): ReactElement {
-  return (
-    <label className="flex items-center justify-between gap-4 py-2 text-sm">
-      <span className="text-mist">{label}</span>
-      <span className="flex items-center gap-2">{children}</span>
-    </label>
-  );
-}
-
-function Num({
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  aria,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  aria: string;
-}): ReactElement {
-  return (
-    <input
-      type="number"
-      aria-label={aria}
-      className="field w-24 text-right font-mono tnum"
-      value={value}
-      min={min}
-      max={max}
-      step={step}
-      onChange={(e) => onChange(Number(e.target.value))}
-    />
-  );
-}
-
-function Check({
-  checked,
-  onChange,
-  aria,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  aria: string;
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={aria}
-      onClick={() => onChange(!checked)}
-      className={
-        checked
-          ? 'flex h-6 w-11 items-center rounded-full bg-brand px-0.5'
-          : 'flex h-6 w-11 items-center rounded-full border border-line bg-deep px-0.5'
-      }
-    >
-      <span
-        className={
-          checked ? 'ml-auto h-5 w-5 rounded-full bg-brand-ink' : 'h-5 w-5 rounded-full bg-faint'
-        }
-      />
-    </button>
-  );
-}
 
 const GAMES = ['valorant', 'cs2', 'apex', 'overwatch', 'fortnite'] as const;
 type GameOpt = (typeof GAMES)[number];

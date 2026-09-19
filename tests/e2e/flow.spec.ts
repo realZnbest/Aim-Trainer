@@ -29,4 +29,19 @@ test.describe('aim trainer e2e', () => {
     // Fresh profile: empty state (lazy-loaded chunk + Dexie query)
     await expect(page.getByText('No sessions yet')).toBeVisible({ timeout: 15_000 });
   });
+
+  test('sandbox editor validates and starts a custom drill', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'customize sandbox' }).click();
+    await expect(page.getByText('Sandbox editor')).toBeVisible();
+    await expect(page.getByText('valid scenario')).toBeVisible();
+    // Break validation: negative duration is rejected by Zod live.
+    await page.getByLabel('duration').fill('-5');
+    await expect(page.getByText('Fix the problems above to start.')).toBeVisible();
+    await page.getByLabel('duration').fill('30');
+    await expect(page.getByText('valid scenario')).toBeVisible();
+    // Start → pointer-lock overlay with the custom title.
+    await page.getByRole('button', { name: 'start custom drill' }).click();
+    await expect(page.getByText('Click to lock mouse')).toBeVisible();
+  });
 });

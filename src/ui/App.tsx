@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, type ReactElement } from 'react';
 import { useApp } from './store';
 import { Menu } from './components/Menu';
 import { Results } from './components/Results';
+import { Sandbox } from './components/Sandbox';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConsentBanner } from './components/ConsentBanner';
 import { MobileBlock } from './components/MobileBlock';
@@ -59,6 +60,7 @@ export function App(): ReactElement {
             </Suspense>
           )}
           {view === 'results' && <Results />}
+          {view === 'sandbox' && <Sandbox />}
           {view === 'dashboard' && (
             <Suspense fallback={<Loading />}>
               <Dashboard />

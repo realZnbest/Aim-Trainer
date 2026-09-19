@@ -88,8 +88,11 @@ export function Menu(): ReactElement {
                     value={d.difficulty}
                     label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
                   />
-                  <Button onClick={() => startScenario(s.id)} ariaLabel={`start ${s.title}`}>
-                    {t('start')} →
+                  <Button
+                    onClick={() => (s.id === 'sandbox' ? setView('sandbox') : startScenario(s.id))}
+                    ariaLabel={s.id === 'sandbox' ? 'customize sandbox' : `start ${s.title}`}
+                  >
+                    {s.id === 'sandbox' ? 'Customize →' : `${t('start')} →`}
                   </Button>
                 </div>
               </div>
