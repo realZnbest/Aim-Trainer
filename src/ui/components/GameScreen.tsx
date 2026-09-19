@@ -138,6 +138,143 @@ function TargetField({
   );
 }
 
+function WeaponModel({
+  run,
+  visible,
+}: {
+  run: React.MutableRefObject<RunRefs | null>;
+  visible: boolean;
+}): null | ReactElement {
+  const { camera } = useThree();
+  const group = useRef<THREE.Group>(null);
+  const targetPosition = useMemo(() => new THREE.Vector3(), []);
+  const targetQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const localOffset = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame((_, delta) => {
+    const weapon = group.current;
+    if (!weapon) return;
+    const recoil = run.current?.weapon.recoilPitchRad ?? 0;
+    localOffset.set(0.26 + recoil * 0.035, -0.36 + recoil * 0.16, -0.82 + recoil * 0.1);
+    targetPosition.copy(localOffset).applyQuaternion(camera.quaternion).add(camera.position);
+    targetQuaternion.copy(camera.quaternion);
+    const follow = 1 - Math.exp(-24 * delta);
+    weapon.position.lerp(targetPosition, follow);
+    weapon.quaternion.slerp(targetQuaternion, follow);
+  });
+
+  return (
+    <group ref={group} visible={visible}>
+      <pointLight position={[-0.3, 0.35, 0.45]} intensity={0.35} distance={3} color="#b7c7e6" />
+      <group rotation={[0.08, -0.04, 0.02]} scale={0.68}>
+        {/* Slide and barrel */}
+        <mesh castShadow position={[0, 0.04, -0.12]}>
+          <boxGeometry args={[0.34, 0.13, 0.56]} />
+          <meshStandardMaterial color="#2d4268" metalness={0.72} roughness={0.32} />
+        </mesh>
+        <mesh castShadow position={[0, 0.04, -0.47]}>
+          <boxGeometry args={[0.24, 0.1, 0.22]} />
+          <meshStandardMaterial color="#253a60" metalness={0.8} roughness={0.28} />
+        </mesh>
+        <mesh castShadow position={[0, 0.04, -0.64]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.072, 0.072, 0.13, 12]} />
+          <meshStandardMaterial color="#070c17" metalness={0.92} roughness={0.2} />
+        </mesh>
+        <mesh position={[0, 0.04, -0.715]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.008, 12]} />
+          <meshBasicMaterial color="#04070e" />
+        </mesh>
+
+        {/* Frame and trigger guard */}
+        <mesh castShadow position={[0, -0.055, 0.13]}>
+          <boxGeometry args={[0.37, 0.12, 0.42]} />
+          <meshStandardMaterial color="#294064" metalness={0.48} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, -0.12, -0.02]}>
+          <boxGeometry args={[0.22, 0.035, 0.18]} />
+          <meshStandardMaterial color="#0e1628" metalness={0.35} roughness={0.62} />
+        </mesh>
+        <mesh position={[-0.095, -0.145, -0.02]}>
+          <boxGeometry args={[0.035, 0.13, 0.18]} />
+          <meshStandardMaterial color="#0e1628" metalness={0.35} roughness={0.62} />
+        </mesh>
+        <mesh position={[0.095, -0.145, -0.02]}>
+          <boxGeometry args={[0.035, 0.13, 0.18]} />
+          <meshStandardMaterial color="#0e1628" metalness={0.35} roughness={0.62} />
+        </mesh>
+        <mesh position={[0, -0.13, -0.055]} rotation={[0.2, 0, 0]}>
+          <boxGeometry args={[0.035, 0.09, 0.025]} />
+          <meshStandardMaterial color="#ff4655" metalness={0.2} roughness={0.42} />
+        </mesh>
+
+        {/* Grip, magazine plate, and range markings */}
+        <mesh castShadow position={[0, -0.28, 0.26]} rotation={[-0.22, 0, 0]}>
+          <boxGeometry args={[0.22, 0.43, 0.22]} />
+          <meshStandardMaterial color="#1b2d4e" metalness={0.38} roughness={0.72} />
+        </mesh>
+        <mesh position={[0, -0.5, 0.3]} rotation={[-0.22, 0, 0]}>
+          <boxGeometry args={[0.23, 0.035, 0.23]} />
+          <meshStandardMaterial color="#22304e" metalness={0.55} roughness={0.45} />
+        </mesh>
+        <mesh position={[0.114, -0.28, 0.255]} rotation={[-0.22, 0, 0]}>
+          <boxGeometry args={[0.012, 0.28, 0.08]} />
+          <meshStandardMaterial color="#6ea8ff" metalness={0.35} roughness={0.5} />
+        </mesh>
+        <mesh position={[-0.114, -0.28, 0.255]} rotation={[-0.22, 0, 0]}>
+          <boxGeometry args={[0.012, 0.28, 0.08]} />
+          <meshStandardMaterial color="#6ea8ff" metalness={0.35} roughness={0.5} />
+        </mesh>
+
+        {/* Front sight and a restrained shot flash */}
+        <mesh position={[0, 0.13, -0.27]}>
+          <boxGeometry args={[0.035, 0.055, 0.1]} />
+          <meshStandardMaterial color="#ff4655" metalness={0.25} roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 0.04, -0.83]} rotation={[Math.PI / 2, 0, 0]} visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.018}>
+          <coneGeometry args={[0.08, 0.2, 6]} />
+          <meshBasicMaterial color="#ff4655" toneMapped={false} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function WeaponStatus({
+  ammo,
+  magazine,
+  reloading,
+  reloadProgress,
+}: {
+  ammo: number;
+  magazine: number;
+  reloading: boolean;
+  reloadProgress: number;
+}): ReactElement {
+  const ammoRatio = magazine > 0 ? Math.max(0, Math.min(1, ammo / magazine)) : 0;
+
+  return (
+    <div
+      className="weapon-status pointer-events-none absolute bottom-10 right-0 z-[5] w-[min(72vw,420px)] opacity-95"
+      aria-label="weapon status"
+    >
+      <div className="mb-2 mr-5 ml-auto flex w-fit items-center gap-3 border border-linesoft bg-abyss/90 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-mist">
+        <span className="text-faint">{reloading ? 'RELOAD' : 'SIDEARM'}</span>
+        <span className={reloading ? 'text-steel' : ammo <= Math.max(3, magazine * 0.2) ? 'text-brand-soft' : 'text-ink'}>
+          {reloading
+            ? `${String(Math.round(reloadProgress * 100))}%`
+            : `${ammo.toString().padStart(2, '0')} / ${String(magazine)}`}
+        </span>
+      </div>
+      <div className="mr-5 ml-auto h-0.5 w-32 bg-linesoft">
+        <div
+          className="h-full bg-steel transition-[width] duration-100"
+          style={{ width: `${String(reloading ? reloadProgress * 100 : ammoRatio * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function GameScreen(): ReactElement {
   const { t } = useTranslation();
   const scenario = useApp((s) => s.scenario());
@@ -160,6 +297,10 @@ export function GameScreen(): ReactElement {
     timeLeft: scenario.durationSec,
     fps: 0,
     itp: 0,
+    ammo: scenario.weapon.magazine,
+    magazine: scenario.weapon.magazine,
+    reloading: false,
+    reloadProgress: 0,
   });
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -379,6 +520,13 @@ export function GameScreen(): ReactElement {
               timeLeft: Math.max(0, Math.ceil((endAtMs - sim.time) / 1000)),
               fps: Math.round(tele.fps),
               itp: tele.inputToPhotonMs,
+              ammo: r.weapon.ammo,
+              magazine: cfg.weapon.magazine,
+              reloading: r.weapon.reloadingUntilMs > sim.time,
+              reloadProgress:
+                r.weapon.reloadingUntilMs > sim.time && cfg.weapon.reloadMs > 0
+                  ? Math.max(0, Math.min(1, 1 - (r.weapon.reloadingUntilMs - sim.time) / cfg.weapon.reloadMs))
+                  : 0,
             });
           }
         },
@@ -540,6 +688,7 @@ export function GameScreen(): ReactElement {
           <meshBasicMaterial color="#070d1d" toneMapped={false} />
         </mesh>
         <CameraRig run={run} />
+        <WeaponModel run={run} visible={!paused} />
         {/* Targets stay range-blue (#3772A4) — decoupled from crosshair color
             so the sight (white) always reads against the target. */}
         <TargetField
@@ -604,6 +753,13 @@ export function GameScreen(): ReactElement {
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
         {scenario.title} · {scenario.durationSec}s · ESC pauses
       </div>
+
+      <WeaponStatus
+        ammo={hud.ammo}
+        magazine={hud.magazine}
+        reloading={hud.reloading}
+        reloadProgress={hud.reloadProgress}
+      />
 
       {/* Pointer-lock overlay — drill briefing card on the range */}
       {!locked && !paused && (
