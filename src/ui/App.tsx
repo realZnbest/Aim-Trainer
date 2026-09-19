@@ -47,7 +47,7 @@ export function App(): ReactElement {
   return (
     <ErrorBoundary>
       <MobileBlock>
-        <div className="h-full min-h-screen bg-bg text-gray-200">
+        <div className="h-full min-h-screen bg-abyss text-ink">
           {view === 'menu' && <Menu />}
           {view === 'game' && (
             <Suspense fallback={<Loading />}>

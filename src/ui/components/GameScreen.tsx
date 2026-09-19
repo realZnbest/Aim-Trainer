@@ -154,7 +154,6 @@ export function GameScreen(): ReactElement {
     fps: 0,
     itp: 0,
   });
-  const [hitmark, setHitmark] = useState(0);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const run = useRef<RunRefs | null>(null);
@@ -351,10 +350,8 @@ export function GameScreen(): ReactElement {
                 trigger: true,
               });
               soundBank.play(hitSound);
-              setHitmark((h) => h + 1);
             }
           }
-
           sim.step(dtMs);
 
           if (simTimeMs >= endAtMs) {
@@ -496,7 +493,6 @@ export function GameScreen(): ReactElement {
           trigger: true,
         });
         soundBank.play(hitSound);
-        setHitmark((h) => h + 1);
       }
     };
     const onUp = (e: MouseEvent): void => {
@@ -518,7 +514,7 @@ export function GameScreen(): ReactElement {
   const crossSize = crosshair.length + crosshair.gap;
 
   return (
-    <div ref={wrapRef} className="relative h-full w-full select-none overflow-hidden bg-bg">
+    <div ref={wrapRef} className="relative h-full w-full select-none overflow-hidden bg-abyss">
       <Canvas
         gl={{ antialias: video.antialias, powerPreference: 'high-performance' }}
         dpr={video.resolutionScale}
@@ -528,19 +524,21 @@ export function GameScreen(): ReactElement {
           canvas.setAttribute('aria-label', 'Aim training arena');
         }}
       >
-        <color attach="background" args={['#0a0e14']} />
+        <color attach="background" args={['#04070e']} />
         <ambientLight intensity={0.7} />
         <directionalLight position={[5, 8, 2]} intensity={0.6} />
-        <gridHelper args={[60, 30, '#1e293b', '#111827']} position={[0, -6, -15]} />
+        <gridHelper args={[60, 30, '#2a3c66', '#101a33']} position={[0, -6, -15]} />
         <mesh position={[0, 0, -40]}>
           <planeGeometry args={[80, 40]} />
-          <meshBasicMaterial color="#0d1320" toneMapped={false} />
+          <meshBasicMaterial color="#070d1d" toneMapped={false} />
         </mesh>
         <CameraRig run={run} />
+        {/* Targets stay range-blue (#3772A4) — decoupled from crosshair color
+            so the sight (white) always reads against the target. */}
         <TargetField
           run={run}
           maxTargets={Math.min(64, scenario.targetCount * 2 + 8)}
-          color={crosshair.color}
+          color="#3772A4"
         />
       </Canvas>
 
@@ -570,78 +568,75 @@ export function GameScreen(): ReactElement {
         </svg>
       </div>
 
-      {/* Hitmarker */}
-      {hitmark > 0 && (
-        <div
-          key={hitmark}
-          className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          aria-hidden
-        >
-          <div className="h-8 w-8 animate-ping rounded-full border-2 border-white/70" />
-        </div>
-      )}
-
-      {/* HUD */}
+      {/* HUD — instrument readouts: hairline chips, tabular numerals */}
       <div
-        className="absolute left-4 top-4 flex gap-4 text-sm"
+        className="absolute left-4 top-4 flex gap-2 font-mono text-[13px]"
         role="status"
         aria-label="match stats"
       >
-        <div className="rounded bg-black/60 px-3 py-1.5">
-          <span className="opacity-60">Kills </span>
-          <span className="font-bold text-cyan-300">{hud.kills}</span>
+        <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
+          <span className="text-faint">KILLS </span>
+          <span className="font-bold text-brand-soft tnum">{hud.kills}</span>
         </div>
-        <div className="rounded bg-black/60 px-3 py-1.5">
-          <span className="opacity-60">Time </span>
-          <span className="font-bold">{hud.timeLeft}s</span>
+        <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
+          <span className="text-faint">TIME </span>
+          <span className="font-bold text-ink tnum">{hud.timeLeft}s</span>
         </div>
-        <div className="rounded bg-black/60 px-3 py-1.5">
-          <span className="opacity-60">Shots </span>
-          <span className="font-bold">{hud.shots}</span>
+        <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
+          <span className="text-faint">SHOTS </span>
+          <span className="font-bold text-ink tnum">{hud.shots}</span>
         </div>
       </div>
       <div
-        className="absolute right-4 top-4 rounded bg-black/60 px-3 py-1.5 text-xs"
+        className="absolute right-4 top-4 rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5 font-mono text-xs text-mist tnum"
         role="status"
         aria-label="telemetry"
       >
         {hud.fps} FPS · ITP ~{hud.itp.toFixed(1)}ms
       </div>
-      <div className="absolute bottom-4 left-4 text-xs opacity-60">
-        {scenario.title} · {t('seconds')}: {scenario.durationSec} · ESC pauses
+      <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
+        {scenario.title} · {scenario.durationSec}s · ESC pauses
       </div>
 
-      {/* Pointer-lock overlay */}
+      {/* Pointer-lock overlay — drill briefing card on the range */}
       {!locked && !paused && (
         <button
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-abyss/85 px-6 text-center"
           onClick={() => {
             setLockError(null);
             soundBank.ensure();
             void run.current?.input.requestLock();
           }}
         >
-          <span className="text-xl font-bold">{t('clickToLock')}</span>
-          <span className="text-sm opacity-70">
-            {scenario.title} — {scenario.description}
+          <span className="font-mono text-xs uppercase tracking-widest text-steel">
+            {scenario.id} · {scenario.durationSec}s
           </span>
-          {lockError && <span className="max-w-md text-sm text-rose-400">{lockError}</span>}
+          <span className="font-display text-3xl font-bold uppercase tracking-tight">
+            {scenario.title}
+          </span>
+          <span className="max-w-md text-sm text-mist">{scenario.description}</span>
+          <span className="rounded-lg bg-brand px-6 py-2.5 font-display text-sm font-semibold uppercase tracking-wide text-brand-ink">
+            {t('clickToLock')}
+          </span>
+          {lockError && <span className="max-w-md text-sm text-danger">{lockError}</span>}
         </button>
       )}
       {paused && !locked && (
         <button
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-abyss/85"
           onClick={() => {
             setLockError(null);
             void run.current?.input.requestLock();
           }}
         >
-          <span className="text-xl font-bold">Paused — click to resume</span>
+          <span className="font-display text-2xl font-bold uppercase tracking-tight">
+            Paused — click to resume
+          </span>
         </button>
       )}
 
       <button
-        className="absolute bottom-4 right-4 z-20 rounded border border-white/20 px-3 py-1.5 text-xs hover:bg-white/10"
+        className="absolute bottom-4 right-4 z-20 rounded-md border border-line px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-mist hover:bg-raised"
         onClick={() => {
           run.current = null;
           setView('menu');

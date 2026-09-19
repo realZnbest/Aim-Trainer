@@ -12,9 +12,24 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:;"
     />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <title>Aim Trainer — Esports Precision Training</title>
   </head>
   <body>
+    <!--
+      DIRECTION CONTRACT (night-range world, brief-pinned — no roll)
+      THESIS: A precision instrument, not an arcade. Refuses the neon-arcade aim-trainer look (glowing cyan, generic card grids); reads as a marksman's logbook — a dark blue-black range at night, hairline measurement, one pink action color.
+      OWN-WORLD: Abyss blue-black grounds; blue-tinted hairlines; Chakra Petch display (Latin+Thai) with tabular numerals; pink reserved for primary action, live score, tier apex; steel blue for info and range markings. Matte surfaces, no glow, no gradients-as-chrome.
+      STORY: The athlete reads the range board, picks a drill by its spec, plays, and gets a debrief that names weaknesses and the next drill.
+      FIRST VIEWPORT: Masthead with reticle mark + wordmark; range-lane backdrop with distance ticks; drill index ledger (code, title, spec, difficulty meter, start); footer with shortcuts.
+      FORM: Brief-pinned (black-blue + pink, no neon).
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

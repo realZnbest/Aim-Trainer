@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ReticleMark } from './primitives';
 
 /** Mobile guard: touch aiming is not attempted — show notice instead. */
 export function MobileBlock({ children }: { children: ReactElement }): ReactElement {
@@ -13,8 +14,9 @@ export function MobileBlock({ children }: { children: ReactElement }): ReactElem
   }, []);
   if (isMobile) {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-center">
-        <p className="max-w-md">{t('needMouse')}</p>
+      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-4 bg-abyss p-8 text-center">
+        <ReticleMark size={40} />
+        <p className="max-w-md text-mist">{t('needMouse')}</p>
       </div>
     );
   }

@@ -81,7 +81,7 @@ export const useApp = create<AppState>((set, get) => ({
   consent: 'unknown',
   lastResult: null,
   crosshair: {
-    color: '#22d3ee',
+    color: '#ffffff',
     gap: 4,
     thickness: 2,
     length: 8,

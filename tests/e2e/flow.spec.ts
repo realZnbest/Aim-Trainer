@@ -23,7 +23,7 @@ test.describe('aim trainer e2e', () => {
   test('settings + dashboard render', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'settings' }).click();
-    await expect(page.getByText('cm/360 source of truth')).toBeVisible();
+    await expect(page.getByText('In-game sens')).toBeVisible();
     await page.getByRole('button', { name: 'Back to menu' }).click();
     await page.getByRole('button', { name: 'dashboard' }).click();
     // Fresh profile: empty state (lazy-loaded chunk + Dexie query)

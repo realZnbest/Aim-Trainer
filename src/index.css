@@ -13,10 +13,31 @@ body,
 }
 
 body {
-  background: #0a0e14;
-  color: #e5e7eb;
-  font-family: Inter, system-ui, sans-serif;
+  background: #04070e;
+  color: #e9effc;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Noto Sans Thai',
+    sans-serif;
   overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display voice: Chakra Petch (Latin + Thai). Tight tracking, never below -0.04em. */
+.font-display {
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: #e7548f;
+  color: #1c0712;
+}
+
+/* Tabular numerals for every measurement readout */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Crosshair overlay is drawn on canvas; keep DOM minimal in hot path */
@@ -25,10 +46,81 @@ canvas {
   outline: none;
 }
 
-/* Focus visibility for keyboard nav (WCAG 2.1 AA) */
+/* Keyboard focus: pink ring, always visible (WCAG 2.1 AA) */
 :focus-visible {
-  outline: 2px solid #22d3ee;
+  outline: 2px solid #f06ba1;
   outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Quiet scrollbars that match the range */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #22304e transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #22304e;
+  border-radius: 8px;
+}
+
+/* Form fields share one dark-steel treatment */
+.field {
+  border-radius: 8px;
+  border: 1px solid #22304e;
+  background: #070c17;
+  color: #e9effc;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.875rem;
+}
+.field:hover {
+  border-color: #2e4066;
+}
+.field:focus {
+  border-color: #e7548f;
+  outline: none;
+}
+select.field option {
+  background: #0a1120;
+}
+
+/* One authored motion: rising reveal for debrief/ledger entries */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Drill-row hover sweep: a steel rail slides in from the left */
+.drill-row {
+  position: relative;
+}
+.drill-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e7548f;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.drill-row:hover::before,
+.drill-row:focus-within::before {
+  transform: scaleY(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
