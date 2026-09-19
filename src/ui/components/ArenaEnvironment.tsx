@@ -30,8 +30,11 @@ const MOVE_Y = 6;
 
 const FOG_COLOR = '#0b1426';
 const EDGE_BLUE = '#4c8dff';
-const STRIP_BLUE = '#5c94ff';
 const LAMP_WHITE = '#cfe0ff';
+/** Warm / cool accents live only off the target lane (sides, ceiling, behind). */
+const TEAL = '#14b8a6';
+const OLIVE = '#5a6148';
+const RUST = '#7a4a2b';
 
 export interface ArenaDims {
   effX: number;
@@ -100,16 +103,13 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
     const beamZs = zSlots(d.backZ, d.frontZ, 10, 6, 12);
     const strapZs = zSlots(d.backZ, d.frontZ, 12, 8, 10);
 
+    const midY = (d.floorY + d.ceilY) / 2;
+    const wide = d.sideX > 22;
+    const fixtureXs = wide ? [0, d.sideX - 6, -(d.sideX - 6)] : [0];
     const gridSize = Math.ceil(Math.max(d.wallW + 14, d.wallD + 14));
     const cell = gridSize > 160 ? 4 : 2;
     const gridDiv = Math.max(8, Math.min(120, Math.floor(gridSize / cell)));
-
-    const midY = (d.floorY + d.ceilY) / 2;
-    const laneLen = 4 - (d.frontZ + 3);
-    const laneCz = (4 + d.frontZ + 3) / 2;
-    const wide = d.sideX > 22;
-    const fixtureXs = wide ? [0, d.sideX - 6, -(d.sideX - 6)] : [0];
-    return { pillarZs, beamZs, strapZs, gridSize, gridDiv, midY, laneLen, laneCz, fixtureXs };
+    return { pillarZs, beamZs, strapZs, midY, fixtureXs, gridSize, gridDiv };
   }, [d]);
 
   const sx = d.sideX;
@@ -124,53 +124,12 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
       <fog attach="fog" args={[FOG_COLOR, d.maxD + 14, d.maxD + 170]} />
       <hemisphereLight args={['#3a5a94', '#0a0f1e', 0.55]} />
 
-      {/* ---------- floor: slab + survey grid ---------- */}
+      {/* ---------- floor: bare slab + survey grid (crates are the sole floor props) ---------- */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY, d.centerZ]}>
         <planeGeometry args={[d.wallW + 14, d.wallD + 14]} />
         <meshStandardMaterial color="#0c152b" roughness={0.95} metalness={0.05} />
       </mesh>
       <gridHelper args={[layout.gridSize, layout.gridDiv, '#20355f', '#141f3a']} position={[0, d.floorY + 0.02, d.centerZ]} />
-
-      {/* player pad: grounded disc + glow ring + short bollards */}
-      <mesh position={[0, d.floorY + 0.07, 0.5]}>
-        <cylinderGeometry args={[2.3, 2.45, 0.14, 40]} />
-        <meshStandardMaterial color="#131f3d" roughness={0.7} metalness={0.3} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY + 0.145, 0.5]}>
-        <ringGeometry args={[2.36, 2.56, 48]} />
-        <meshBasicMaterial color="#2f6fed" toneMapped={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY + 0.145, 0.5]}>
-        <circleGeometry args={[0.5, 32]} />
-        <meshBasicMaterial color="#1b2c55" toneMapped={false} />
-      </mesh>
-      {[45, 135, 225, 315].map((deg) => {
-        const a = (deg * Math.PI) / 180;
-        const x = Math.cos(a) * 3.1;
-        const z = 0.5 + Math.sin(a) * 3.1;
-        return (
-          <group key={deg} position={[x, 0, z]}>
-            <mesh position={[0, d.floorY + 0.5, 0]}>
-              <cylinderGeometry args={[0.13, 0.16, 1.0, 12]} />
-              <meshStandardMaterial color="#1a2a52" roughness={0.5} metalness={0.6} />
-            </mesh>
-            <mesh position={[0, d.floorY + 1.02, 0]}>
-              <cylinderGeometry args={[0.14, 0.14, 0.08, 12]} />
-              <meshBasicMaterial color={STRIP_BLUE} toneMapped={false} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {/* lane guide strips: flat on the floor, run with the view — never cross it */}
-      <mesh position={[-2.8, d.floorY + 0.03, layout.laneCz]}>
-        <boxGeometry args={[0.18, 0.05, layout.laneLen]} />
-        <meshBasicMaterial color="#2456a6" toneMapped={false} />
-      </mesh>
-      <mesh position={[2.8, d.floorY + 0.03, layout.laneCz]}>
-        <boxGeometry args={[0.18, 0.05, layout.laneLen]} />
-        <meshBasicMaterial color="#2456a6" toneMapped={false} />
-      </mesh>
 
       {/* ---------- front (target) wall: intentionally bare — zero distraction behind targets ---------- */}
       <mesh position={[0, layout.midY, d.frontZ]}>
@@ -196,6 +155,15 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
         <boxGeometry args={[0.1, 0.16, d.wallD - 6]} />
         <meshBasicMaterial color="#1f4b9e" toneMapped={false} />
       </mesh>
+      {/* a single amber accent stripe per side wall */}
+      <mesh position={[wallInnerL + 0.05, 5.6, d.centerZ]}>
+        <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
+        <meshBasicMaterial color="#FF4655" toneMapped={false} />
+      </mesh>
+      <mesh position={[wallInnerR - 0.05, 5.6, d.centerZ]}>
+        <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
+        <meshBasicMaterial color="#FF4655" toneMapped={false} />
+      </mesh>
       {/* ventilation ducts hugging the upper walls + straps tying them to the ceiling */}
       {[-1, 1].map((side, si) => (
         <mesh key={300 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, d.centerZ]}>
@@ -211,6 +179,15 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
           </mesh>
         )),
       )}
+      {/* amber bands ringing the ducts */}
+      {layout.strapZs.flatMap((z, zi) =>
+        [-1, 1].map((side, si) => (
+          <mesh key={8000 + zi * 2 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, z]}>
+            <boxGeometry args={[1.06, 1.06, 0.24]} />
+            <meshBasicMaterial color="#FF4655" toneMapped={false} />
+          </mesh>
+        )),
+      )}
 
       {/* ---------- free-standing columns: floor-to-ceiling, outside the lane ---------- */}
       {layout.pillarZs.flatMap((z, zi) =>
@@ -223,6 +200,15 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
             <mesh position={[side * (sx - 2.36), layout.midY, z]}>
               <boxGeometry args={[0.12, d.wallH - 3, 0.12]} />
               <meshBasicMaterial color={EDGE_BLUE} toneMapped={false} />
+            </mesh>
+            {/* signal-red collar below the ceiling + grounded plinth */}
+            <mesh position={[side * (sx - 1.7), d.ceilY - 0.7, z]}>
+              <boxGeometry args={[1.34, 0.2, 1.34]} />
+              <meshBasicMaterial color="#FF4655" toneMapped={false} />
+            </mesh>
+            <mesh position={[side * (sx - 1.7), d.floorY + 0.25, z]}>
+              <boxGeometry args={[1.5, 0.5, 1.5]} />
+              <meshStandardMaterial color="#0f1c38" roughness={0.7} metalness={0.3} />
             </mesh>
           </group>
         )),
@@ -279,25 +265,18 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
         <boxGeometry args={[1.3, 0.3, 0.12]} />
         <meshBasicMaterial color="#38e08a" toneMapped={false} />
       </mesh>
+      {/* teal header bar above the door (wall-mounted) */}
+      <mesh position={[0, d.floorY + 6.2, d.backZ - 0.46]}>
+        <boxGeometry args={[2.2, 0.22, 0.12]} />
+        <meshBasicMaterial color={TEAL} toneMapped={false} />
+      </mesh>
 
-      {/* benches + crates: grounded, behind / beside the player only */}
-      {[-1, 1].map((side, si) => (
-        <group key={400 + si} position={[side * 6.5, 0, d.backZ - 5]}>
-          <mesh position={[0, d.floorY + 0.25, 0]}>
-            <boxGeometry args={[3.4, 0.5, 1.0]} />
-            <meshStandardMaterial color="#13203c" roughness={0.8} metalness={0.2} />
-          </mesh>
-          <mesh position={[0, d.floorY + 0.58, 0]}>
-            <boxGeometry args={[3.6, 0.16, 1.15]} />
-            <meshStandardMaterial color="#1c2f5c" roughness={0.6} metalness={0.3} />
-          </mesh>
-        </group>
-      ))}
+      {/* crates: the sole floor props, grounded behind / beside the player only */}
       {[
         { x: crateX, z: d.backZ - 3, y: 0, c: '#1a2c52' },
-        { x: -crateX, z: d.backZ - 3, y: 0, c: '#1a2c52' },
+        { x: -crateX, z: d.backZ - 3, y: 0, c: OLIVE },
         { x: crateX, z: d.backZ - 3, y: 1, c: '#22365e' },
-        { x: crateX - 1.5, z: d.backZ - 2.8, y: 0, c: '#152647' },
+        { x: crateX - 1.5, z: d.backZ - 2.8, y: 0, c: RUST },
         { x: -crateX + 2.2, z: d.backZ - 5.5, y: 0, c: '#22365e' },
       ].map((box, i) => (
         <mesh key={i} position={[box.x, d.floorY + 0.65 + box.y * 1.3, box.z]}>

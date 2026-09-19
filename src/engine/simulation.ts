@@ -7,6 +7,12 @@
  * - Hit registration uses the aim state AT THE SHOT TIMESTAMP, not the render
  *   frame — shots carry their own tMs and are resolved against interpolated
  *   target positions at that exact time.
+ * - All targets spawn on ONE plane (midpoint of the distance band) and drift
+ *   only in X/Y — kills never stack front-to-back, so targets can't occlude
+ *   each other.
+ * - Separation sampling: each spawn tests candidates against live targets
+ *   and keeps a fully clear spot (roomiest fallback in dense configs), so a
+ *   kill never appears to "not disappear" behind a stacked twin.
  * - Angular math: targets live on a sphere around the camera at origin.
  *   Camera looks down -Z; yaw/pitch rotate the forward vector.
  *
@@ -55,27 +61,35 @@ export interface SimulationEvents {
 
 const DEG = Math.PI / 180;
 
+/** Spawn separation: centers must clear (r1 + r2) × SEPARATION. */
+const SEPARATION = 1.5;
+/** Spawn candidate tries before keeping the roomiest fallback (dense configs). */
+const SPAWN_TRIES = 8;
+
 function randomPointInArea(area: SpawnArea, rng: Rng, out: Vec3): void {
   const minD = area.minDistance ?? 8;
   const maxD = area.maxDistance ?? 25;
+  // Single spawn plane: every target spawns at the midpoint of the distance
+  // band, so kills never stack front-to-back — no depth layers, no occlusion
+  // between targets. Movement profiles only ever drift X/Y, so the plane
+  // holds for the whole run.
+  const plane = -(minD + maxD) / 2;
   if (area.volume === 'box') {
     const h = area.halfExtents ?? { x: 6, y: 4, z: 0.5 };
     // Spawn plane: centered forward at -Z distance, spread in X/Y
-    const dist = rng.range(minD, maxD);
     out.x = rng.range(-h.x, h.x);
     out.y = rng.range(-h.y, h.y);
-    out.z = -dist;
+    out.z = plane;
     return;
   }
   if (area.volume === 'sphere') {
     const r = area.radius ?? 6;
-    const dist = rng.range(minD, maxD);
     // random offset on sphere shell, projected forward
     const theta = rng.next() * Math.PI * 2;
     const rr = Math.sqrt(rng.next()) * r;
     out.x = Math.cos(theta) * rr;
     out.y = Math.sin(theta) * rr;
-    out.z = -dist;
+    out.z = plane;
     return;
   }
   // cone
@@ -85,7 +99,7 @@ function randomPointInArea(area: SpawnArea, rng: Rng, out: Vec3): void {
   const az = rng.next() * Math.PI * 2;
   out.x = dist * Math.sin(ang) * Math.cos(az);
   out.y = dist * Math.sin(ang) * Math.sin(az);
-  out.z = -dist * Math.cos(ang);
+  out.z = plane;
 }
 
 function randomSpeed(min: number, max: number, rng: Rng): number {
@@ -155,15 +169,9 @@ export class Simulation {
     return min + this.rng.next() * (max - min);
   }
 
-  private spawn(nowMs: number, avoid?: Vec3): TargetState | null {
-    const t = this.pool.acquire();
-    if (!t) return null;
-    t.id = this.nextId++;
-    t.active = true;
-    t.dormant = false; // pool reuse must never leak duel state into other modes
-    t.shape = this.cfg.shape;
-    t.radius = this.rng.range(this.cfg.sizeMin, this.cfg.sizeMax);
-    randomPointInArea(this.cfg.area, this.rng, t.position);
+  /** Raw spawn point: area sample + grid snap + switch-mode grave repulsion. */
+  private sampleSpawnPoint(out: Vec3, avoid?: Vec3): void {
+    randomPointInArea(this.cfg.area, this.rng, out);
     // Gridshot pattern: quantize spawn to a deterministic grid cell (data-driven)
     if (this.cfg.spawnPattern === 'grid') {
       const cols = this.cfg.gridCols ?? 3;
@@ -171,15 +179,15 @@ export class Simulation {
       const h = this.cfg.area.halfExtents ?? { x: 6, y: 4, z: 0.5 };
       const cx = this.rng.int(0, cols - 1);
       const cy = this.rng.int(0, rows - 1);
-      t.position.x = cols === 1 ? 0 : -h.x + (2 * h.x * cx) / (cols - 1);
-      t.position.y = rows === 1 ? 0 : h.y - (2 * h.y * cy) / (rows - 1);
+      out.x = cols === 1 ? 0 : -h.x + (2 * h.x * cx) / (cols - 1);
+      out.y = rows === 1 ? 0 : h.y - (2 * h.y * cy) / (rows - 1);
     }
     // Switch pattern: replacement must land far from the kill — sample
     // candidates and keep the farthest so every kill forces a long flick.
     if (this.cfg.spawnPattern === 'switch' && avoid) {
       const cand: Vec3 = { x: 0, y: 0, z: 0 };
       let bestD = -Infinity;
-      const best: Vec3 = { ...t.position };
+      const best: Vec3 = { ...out };
       for (let i = 0; i < 6; i++) {
         randomPointInArea(this.cfg.area, this.rng, cand);
         const dx = cand.x - avoid.x;
@@ -193,10 +201,58 @@ export class Simulation {
           best.z = cand.z;
         }
       }
-      t.position.x = best.x;
-      t.position.y = best.y;
-      t.position.z = best.z;
+      out.x = best.x;
+      out.y = best.y;
+      out.z = best.z;
     }
+  }
+
+  /**
+   * Worst overlap of (point, radius) against live targets.
+   * >= 0 means fully clear of every other target.
+   */
+  private clearance(p: Vec3, r: number, self: TargetState): number {
+    let worst = Infinity;
+    for (const o of this.spawned) {
+      if (o === self || !o.active) continue;
+      const d = Math.hypot(p.x - o.position.x, p.y - o.position.y, p.z - o.position.z);
+      const score = d - (r + o.radius) * SEPARATION;
+      if (score < worst) worst = score;
+    }
+    return worst;
+  }
+
+  private spawn(nowMs: number, avoid?: Vec3): TargetState | null {
+    const t = this.pool.acquire();
+    if (!t) return null;
+    t.id = this.nextId++;
+    t.active = true;
+    t.dormant = false; // pool reuse must never leak duel state into other modes
+    t.shape = this.cfg.shape;
+    // Separation sampling: random with a single hard constraint — never spawn
+    // stacked on a live target (a stacked kill looks like "shot it but it
+    // didn't disappear"). The FIRST fully-clear candidate wins, so spawns stay
+    // uniform-random with no "always farthest" bias to read. Only dense custom
+    // configs (up to 64 targets) fall back to the roomiest option.
+    const cand: Vec3 = { x: 0, y: 0, z: 0 };
+    const best: Vec3 = { x: 0, y: 0, z: 0 };
+    let bestR = this.cfg.sizeMin;
+    let bestScore = -Infinity;
+    for (let i = 0; i < SPAWN_TRIES; i++) {
+      const r = this.rng.range(this.cfg.sizeMin, this.cfg.sizeMax);
+      this.sampleSpawnPoint(cand, avoid);
+      const score = this.clearance(cand, r, t);
+      if (score > bestScore) {
+        bestScore = score;
+        bestR = r;
+        best.x = cand.x;
+        best.y = cand.y;
+        best.z = cand.z;
+      }
+      if (score >= 0) break;
+    }
+    t.radius = bestR;
+    t.position = { ...best };
     t.basePos = { ...t.position };
     t.spawnTimeMs = nowMs;
     t.lifetimeMs = this.cfg.lifetimeMs;
@@ -231,7 +287,8 @@ export class Simulation {
     t.position = {
       x: side * this.rng.range(2.5, 6.5),
       y: this.rng.range(-2.5, 2.5),
-      z: -this.rng.range(minD, maxD),
+      // Duel targets share the single spawn plane like every other mode.
+      z: -(minD + maxD) / 2,
     };
     t.basePos = { ...t.position };
     t.spawnTimeMs = nowMs;

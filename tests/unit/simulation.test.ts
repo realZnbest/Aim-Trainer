@@ -47,11 +47,11 @@ describe('simulation', () => {
     const sim = new Simulation(scenarioToSpawnConfig(gridshot), 'grid-seed');
     const act: Parameters<Simulation['collectActive']>[0] = [];
     const list = sim.collectActive(act);
-    expect(list.length).toBe(3);
-    // 3x3 grid over halfExtents x=6: xs must be in {-6, 0, 6}
+    expect(list.length).toBe(4);
+    // 5x5 grid over halfExtents x=6/y=4: snapped lattice points only
     for (const t of list) {
-      expect([-6, 0, 6]).toContain(t.position.x);
-      expect([-4, 0, 4]).toContain(t.position.y);
+      expect([-6, -3, 0, 3, 6]).toContain(t.position.x);
+      expect([-4, -2, 0, 2, 4]).toContain(t.position.y);
     }
   });
 
@@ -164,7 +164,7 @@ describe('simulation', () => {
         sim.step(1000 / 240);
         if (i % 30 === 0) {
           const list = sim.collectActive(act);
-          log.push(list.map((t) => `${t.id}:${t.position.x.toFixed(3)}`).join('|'));
+          log.push(list.map((t) => `${String(t.id)}:${t.position.x.toFixed(3)}`).join('|'));
         }
       }
       return log.join(';');
@@ -238,7 +238,7 @@ describe('simulation', () => {
         yawSweep += 0.002;
         if (i % 20 === 0) {
           const sh = s2.fire(s2.time, yawSweep, 0);
-          log.push(`${sh.hit ? 1 : 0}:${s2.collectActive(a2).length}`);
+          log.push(`${sh.hit ? '1' : '0'}:${String(s2.collectActive(a2).length)}`);
         }
       }
       return log.join(';');
@@ -326,6 +326,75 @@ describe('simulation', () => {
       for (const t of sim.collectActive(act)) {
         expect(Number.isFinite(t.position.x)).toBe(true);
         expect(Number.isFinite(t.position.y)).toBe(true);
+      }
+    }
+  });
+
+  it('all spawns share one plane — no front-back layering', () => {
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    const planeOf = (s: (typeof BUILT_IN_SCENARIOS)[number]): number =>
+      -(s.spawnArea.minDistance + s.spawnArea.maxDistance) / 2;
+    for (const s of BUILT_IN_SCENARIOS) {
+      for (const movement of [s.movementProfile, 'strafe-ai'] as const) {
+        const sim = new Simulation(
+          { ...scenarioToSpawnConfig(s), movement, count: Math.min(s.targetCount, 5) },
+          `plane-${s.id}-${movement}`,
+        );
+        // Kill + refill across 5s of ticks: every generation must sit on the plane.
+        for (let i = 0; i < 240 * 5; i++) {
+          sim.step(1000 / 240);
+          const list = sim.collectActive(act);
+          for (const t of list) {
+            expect(t.position.z).toBe(planeOf(s));
+            // Fire at it so refills cycle in (dormant duel targets are unhittable).
+            if (!t.dormant) {
+              const d = Math.hypot(t.position.x, t.position.y, t.position.z);
+              sim.fire(
+                sim.time,
+                Math.atan2(-t.position.x, -t.position.z),
+                Math.asin(Math.max(-1, Math.min(1, t.position.y / d))),
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('spawns never stack on a live target (min separation)', () => {
+    const act: Parameters<Simulation['collectActive']>[0] = [];
+    for (const s of BUILT_IN_SCENARIOS) {
+      const sim = new Simulation(
+        { ...scenarioToSpawnConfig(s), count: Math.min(s.targetCount, 5) },
+        `nostack-${s.id}`,
+      );
+      const seen = new Set<number>();
+      for (let i = 0; i < 240 * 5; i++) {
+        sim.step(1000 / 240);
+        const list = sim.collectActive(act);
+        for (const t of list) {
+          if (!seen.has(t.id)) {
+            seen.add(t.id);
+            // Fresh spawn: must clear every other live target (no overlap).
+            for (const o of list) {
+              if (o === t) continue;
+              const d = Math.hypot(
+                t.position.x - o.position.x,
+                t.position.y - o.position.y,
+                t.position.z - o.position.z,
+              );
+              expect(d).toBeGreaterThanOrEqual(t.radius + o.radius);
+            }
+          }
+          if (!t.dormant) {
+            const d = Math.hypot(t.position.x, t.position.y, t.position.z);
+            sim.fire(
+              sim.time,
+              Math.atan2(-t.position.x, -t.position.z),
+              Math.asin(Math.max(-1, Math.min(1, t.position.y / d))),
+            );
+          }
+        }
       }
     }
   });
