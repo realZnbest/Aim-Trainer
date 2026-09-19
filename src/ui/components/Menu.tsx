@@ -19,11 +19,9 @@ const DOSSIER: Record<string, { focus: string; difficulty: number }> = {
 };
 
 export function Menu(): ReactElement {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const startScenario = useApp((s) => s.startScenario);
   const setView = useApp((s) => s.setView);
-  const language = useApp((s) => s.language);
-  const setLanguage = useApp((s) => s.setLanguage);
 
   return (
     <div className="mx-auto max-w-6xl px-6 pb-16 pt-8">
@@ -40,17 +38,6 @@ export function Menu(): ReactElement {
           </div>
         </div>
         <nav className="flex gap-2" aria-label="primary">
-          <Button
-            variant="ghost"
-            ariaLabel="switch language"
-            onClick={() => {
-              const next = language === 'en' ? 'th' : 'en';
-              setLanguage(next);
-              void i18n.changeLanguage(next);
-            }}
-          >
-            {language === 'en' ? 'TH' : 'EN'}
-          </Button>
           <Button variant="ghost" onClick={() => setView('dashboard')} ariaLabel="dashboard">
             {t('dashboard')}
           </Button>

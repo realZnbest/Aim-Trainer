@@ -34,7 +34,7 @@ pnpm typecheck && pnpm test:coverage && pnpm build
 - `src/scenarios/` — Zod schema + 9 built-ins + adapter to engine config.
 - `src/analytics/` — pure functions, 100% unit covered.
 - `src/persistence/` — Dexie (IndexedDB) repos + optional sync stub.
-- `src/ui/` — React components, Zustand store (UI state only), i18n (EN/TH).
+- `src/ui/` — React components, Zustand store (UI state only), English copy via i18next.
 - `src/workers/` — analytics aggregation off main thread.
 
 ## Scoring formula

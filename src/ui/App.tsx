@@ -1,5 +1,4 @@
 import { Suspense, lazy, useEffect, type ReactElement } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useApp } from './store';
 import { Menu } from './components/Menu';
 import { Results } from './components/Results';
@@ -25,12 +24,6 @@ function Loading(): ReactElement {
 export function App(): ReactElement {
   const view = useApp((s) => s.view);
   const runId = useApp((s) => s.runId);
-  const language = useApp((s) => s.language);
-  const { i18n } = useTranslation();
-
-  useEffect(() => {
-    void i18n.changeLanguage(language);
-  }, [language, i18n]);
 
   // Keyboard nav: 1-3 quick switch outside game.
   // Ignored while typing in form fields so settings inputs accept digits.

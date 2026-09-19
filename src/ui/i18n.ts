@@ -33,35 +33,6 @@ const resources = {
       seconds: 's',
     },
   },
-  th: {
-    translation: {
-      appName: 'Aim Trainer',
-      play: 'เล่น',
-      dashboard: 'แดชบอร์ด',
-      settings: 'ตั้งค่า',
-      scenarios: 'ด่านฝึก',
-      start: 'เริ่ม',
-      clickToLock: 'คลิกเพื่อล็อกเมาส์',
-      score: 'คะแนน',
-      accuracy: 'ความแม่นยำ',
-      reaction: 'ปฏิกิริยา',
-      tier: 'ระดับ',
-      consent: 'เราบันทึกข้อมูลการฝึกไว้ในอุปกรณ์ของคุณเท่านั้น ไม่เปิด sync ภายนอกโดยค่าเริ่มต้น',
-      accept: 'ยอมรับ',
-      decline: 'ปฏิเสธ',
-      needMouse: 'Aim Trainer ต้องใช้เมาส์ + คีย์บอร์ดบนเดสก์ท็อป Chrome/Edge/Firefox',
-      results: 'ผลลัพธ์',
-      playAgain: 'เล่นอีกครั้ง',
-      backToMenu: 'กลับเมนู',
-      exportCsv: 'ส่งออก CSV',
-      exportJson: 'ส่งออก JSON',
-      video: 'ภาพ',
-      audio: 'เสียง',
-      crosshair: 'เป้าเล็ง',
-      sensitivity: 'ความไวเมาส์',
-      seconds: 'วินาที',
-    },
-  },
 } as const;
 
 void i18n
@@ -70,7 +41,7 @@ void i18n
   .init({
     resources,
     fallbackLng: 'en',
-    supportedLngs: ['en', 'th'],
+    supportedLngs: ['en'],
     interpolation: { escapeValue: false },
   });
 

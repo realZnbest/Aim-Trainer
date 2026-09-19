@@ -57,7 +57,6 @@ interface AppState {
   hitSound: 'click' | 'tick' | 'thock' | 'beep';
   masterVolume: number;
   hitVolume: number;
-  language: 'en' | 'th';
   colorblind: 'none' | 'deuteranopia' | 'protanopia' | 'tritanopia';
 
   setView: (v: View) => void;
@@ -69,7 +68,6 @@ interface AppState {
   patchVideo: (p: Partial<VideoSettings>) => void;
   setHitSound: (s: AppState['hitSound']) => void;
   setVolumes: (master: number, hit: number) => void;
-  setLanguage: (l: 'en' | 'th') => void;
   setColorblind: (c: AppState['colorblind']) => void;
   scenario: () => Scenario;
 }
@@ -110,7 +108,6 @@ export const useApp = create<AppState>((set, get) => ({
   hitSound: 'click',
   masterVolume: 0.8,
   hitVolume: 0.9,
-  language: 'en',
   colorblind: 'none',
 
   setView: (view) => set({ view }),
@@ -122,7 +119,6 @@ export const useApp = create<AppState>((set, get) => ({
   patchVideo: (p) => set((s) => ({ video: { ...s.video, ...p } })),
   setHitSound: (hitSound) => set({ hitSound }),
   setVolumes: (masterVolume, hitVolume) => set({ masterVolume, hitVolume }),
-  setLanguage: (language) => set({ language }),
   setColorblind: (colorblind) => set({ colorblind }),
   scenario: () => {
     const id = get().scenarioId;
