@@ -58,8 +58,8 @@ export function computeDims(s: Scenario): ArenaDims {
   const maxD = Math.max(area.minDistance, area.maxDistance);
   const maxR = Math.max(s.targetSize, s.targetSizeMax, 0.3);
 
-  let needX = 6;
-  let needY = 4;
+  let needX: number;
+  let needY: number;
   if (area.volume === 'box') {
     needX = area.halfExtents?.x ?? 6;
     needY = area.halfExtents?.y ?? 4;
