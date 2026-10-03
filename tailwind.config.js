@@ -17,7 +17,7 @@ export default {
         ink: '#e9effc',
         mist: '#93a3c4',
         faint: '#5d6d92',
-// Brand red — the single action color. No glow, never gradient text.
+        // Brand red — the single action color. No glow, never gradient text.
         brand: {
           DEFAULT: '#ff4655',
           strong: '#ff626e',
