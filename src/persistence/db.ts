@@ -74,6 +74,16 @@ export async function listSessions(limit = 50): Promise<SessionRecord[]> {
   return db.sessions.orderBy('startedAt').reverse().limit(limit).toArray();
 }
 
+/** Best score per scenario id. `excludeStartedAt` skips the run being displayed. */
+export async function personalBests(excludeStartedAt?: string): Promise<Record<string, number>> {
+  const best: Record<string, number> = {};
+  await db.sessions.each((r) => {
+    if (r.startedAt === excludeStartedAt) return;
+    if (r.score > (best[r.scenarioId] ?? -Infinity)) best[r.scenarioId] = r.score;
+  });
+  return best;
+}
+
 export async function clearSessions(): Promise<void> {
   await db.sessions.clear();
 }

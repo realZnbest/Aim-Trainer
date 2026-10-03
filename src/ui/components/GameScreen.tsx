@@ -70,10 +70,16 @@ interface RunRefs {
   holdSinceMs: number;
   pressedEdge: boolean;
   kills: number;
+  streak: number;
+  bestStreak: number;
+  /** Pre-roll left (ms) after the first lock; sim + clock are frozen until 0. */
+  countdownMs: number;
   simTargets: TargetState[];
   seed: string;
   over: boolean;
 }
+
+const COUNTDOWN_MS = 3000;
 
 function mulberrySeed(): string {
   return `run-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
@@ -245,13 +251,43 @@ function WeaponModel({
       </group>
       <group visible={false}>
         {/* Beveled slide: dark steel shell, raised top plane, and serrations. */}
-        <RoundedBox args={[0.42, 0.15, 0.64]} radius={0.035} smoothness={2} castShadow position={[0, 0.055, -0.12]}>
-          <meshStandardMaterial color="#2d4268" emissive="#0a1428" emissiveIntensity={0.7} metalness={0.78} roughness={0.3} />
+        <RoundedBox
+          args={[0.42, 0.15, 0.64]}
+          radius={0.035}
+          smoothness={2}
+          castShadow
+          position={[0, 0.055, -0.12]}
+        >
+          <meshStandardMaterial
+            color="#2d4268"
+            emissive="#0a1428"
+            emissiveIntensity={0.7}
+            metalness={0.78}
+            roughness={0.3}
+          />
         </RoundedBox>
-        <RoundedBox args={[0.34, 0.055, 0.38]} radius={0.018} smoothness={2} castShadow position={[0, 0.145, -0.03]}>
-          <meshStandardMaterial color="#3b527c" emissive="#0b1730" emissiveIntensity={0.65} metalness={0.72} roughness={0.27} />
+        <RoundedBox
+          args={[0.34, 0.055, 0.38]}
+          radius={0.018}
+          smoothness={2}
+          castShadow
+          position={[0, 0.145, -0.03]}
+        >
+          <meshStandardMaterial
+            color="#3b527c"
+            emissive="#0b1730"
+            emissiveIntensity={0.65}
+            metalness={0.72}
+            roughness={0.27}
+          />
         </RoundedBox>
-        <RoundedBox args={[0.25, 0.1, 0.23]} radius={0.02} smoothness={2} castShadow position={[0, 0.055, -0.5]}>
+        <RoundedBox
+          args={[0.25, 0.1, 0.23]}
+          radius={0.02}
+          smoothness={2}
+          castShadow
+          position={[0, 0.055, -0.5]}
+        >
           <meshStandardMaterial color="#253a60" metalness={0.86} roughness={0.23} />
         </RoundedBox>
         <mesh position={[0.218, 0.055, -0.2]}>
@@ -280,10 +316,27 @@ function WeaponModel({
         </mesh>
 
         {/* Frame, dust cover, rail teeth, and trigger. */}
-        <RoundedBox args={[0.45, 0.14, 0.45]} radius={0.04} smoothness={2} castShadow position={[0, -0.055, 0.12]}>
-          <meshStandardMaterial color="#294064" emissive="#081326" emissiveIntensity={0.65} metalness={0.5} roughness={0.46} />
+        <RoundedBox
+          args={[0.45, 0.14, 0.45]}
+          radius={0.04}
+          smoothness={2}
+          castShadow
+          position={[0, -0.055, 0.12]}
+        >
+          <meshStandardMaterial
+            color="#294064"
+            emissive="#081326"
+            emissiveIntensity={0.65}
+            metalness={0.5}
+            roughness={0.46}
+          />
         </RoundedBox>
-        <RoundedBox args={[0.27, 0.055, 0.27]} radius={0.014} smoothness={2} position={[0, -0.145, -0.08]}>
+        <RoundedBox
+          args={[0.27, 0.055, 0.27]}
+          radius={0.014}
+          smoothness={2}
+          position={[0, -0.145, -0.08]}
+        >
           <meshStandardMaterial color="#182640" metalness={0.55} roughness={0.42} />
         </RoundedBox>
         {[-0.17, -0.12, -0.07, -0.02].map((z) => (
@@ -296,18 +349,49 @@ function WeaponModel({
           <torusGeometry args={[0.09, 0.017, 8, 16, Math.PI]} />
           <meshStandardMaterial color="#0e1628" metalness={0.32} roughness={0.6} />
         </mesh>
-        <RoundedBox args={[0.035, 0.095, 0.025]} radius={0.008} smoothness={2} position={[0, -0.135, -0.045]} rotation={[0.2, 0, 0]}>
+        <RoundedBox
+          args={[0.035, 0.095, 0.025]}
+          radius={0.008}
+          smoothness={2}
+          position={[0, -0.135, -0.045]}
+          rotation={[0.2, 0, 0]}
+        >
           <meshStandardMaterial color="#ff4655" metalness={0.2} roughness={0.4} />
         </RoundedBox>
 
         {/* Grip with separate side panels, grooves, and magwell plate. */}
-        <RoundedBox args={[0.25, 0.5, 0.25]} radius={0.035} smoothness={2} castShadow position={[0, -0.31, 0.27]} rotation={[-0.22, 0, 0]}>
-          <meshStandardMaterial color="#1b2d4e" emissive="#071227" emissiveIntensity={0.8} metalness={0.4} roughness={0.7} />
+        <RoundedBox
+          args={[0.25, 0.5, 0.25]}
+          radius={0.035}
+          smoothness={2}
+          castShadow
+          position={[0, -0.31, 0.27]}
+          rotation={[-0.22, 0, 0]}
+        >
+          <meshStandardMaterial
+            color="#1b2d4e"
+            emissive="#071227"
+            emissiveIntensity={0.8}
+            metalness={0.4}
+            roughness={0.7}
+          />
         </RoundedBox>
-        <RoundedBox args={[0.018, 0.34, 0.19]} radius={0.008} smoothness={2} position={[0.134, -0.3, 0.27]} rotation={[-0.22, 0, 0]}>
+        <RoundedBox
+          args={[0.018, 0.34, 0.19]}
+          radius={0.008}
+          smoothness={2}
+          position={[0.134, -0.3, 0.27]}
+          rotation={[-0.22, 0, 0]}
+        >
           <meshStandardMaterial color="#2d4268" metalness={0.5} roughness={0.58} />
         </RoundedBox>
-        <RoundedBox args={[0.018, 0.34, 0.19]} radius={0.008} smoothness={2} position={[-0.134, -0.3, 0.27]} rotation={[-0.22, 0, 0]}>
+        <RoundedBox
+          args={[0.018, 0.34, 0.19]}
+          radius={0.008}
+          smoothness={2}
+          position={[-0.134, -0.3, 0.27]}
+          rotation={[-0.22, 0, 0]}
+        >
           <meshStandardMaterial color="#2d4268" metalness={0.5} roughness={0.58} />
         </RoundedBox>
         {[0.18, 0.23, 0.28, 0.33, 0.38].map((y) => (
@@ -316,12 +400,23 @@ function WeaponModel({
             <meshStandardMaterial color="#6ea8ff" metalness={0.35} roughness={0.5} />
           </mesh>
         ))}
-        <RoundedBox args={[0.26, 0.04, 0.26]} radius={0.012} smoothness={2} position={[0, -0.54, 0.32]} rotation={[-0.22, 0, 0]}>
+        <RoundedBox
+          args={[0.26, 0.04, 0.26]}
+          radius={0.012}
+          smoothness={2}
+          position={[0, -0.54, 0.32]}
+          rotation={[-0.22, 0, 0]}
+        >
           <meshStandardMaterial color="#22304e" metalness={0.62} roughness={0.38} />
         </RoundedBox>
 
         {/* Rear sight, front sight, optic housing, and red lens. */}
-        <RoundedBox args={[0.16, 0.07, 0.19]} radius={0.018} smoothness={2} position={[0, 0.18, 0.13]}>
+        <RoundedBox
+          args={[0.16, 0.07, 0.19]}
+          radius={0.018}
+          smoothness={2}
+          position={[0, 0.18, 0.13]}
+        >
           <meshStandardMaterial color="#0a1120" metalness={0.65} roughness={0.34} />
         </RoundedBox>
         <mesh position={[0, 0.19, 0.03]}>
@@ -352,7 +447,11 @@ function WeaponModel({
         </mesh>
 
         {/* Restrained 3D shot flash. */}
-        <mesh position={[0, 0.055, -0.88]} rotation={[Math.PI / 2, 0, 0]} visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.004}>
+        <mesh
+          position={[0, 0.055, -0.88]}
+          rotation={[Math.PI / 2, 0, 0]}
+          visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.004}
+        >
           <coneGeometry args={[0.08, 0.2, 6]} />
           <meshBasicMaterial color="#ff4655" toneMapped={false} />
         </mesh>
@@ -383,6 +482,8 @@ export function GameScreen(): ReactElement {
     timeLeft: scenario.durationSec,
     fps: 0,
     itp: 0,
+    streak: 0,
+    countdown: 0,
   });
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -416,7 +517,11 @@ export function GameScreen(): ReactElement {
         const r = run.current;
         shots.push(s);
         if (s.hit) {
-          if (r) r.kills += s.killed ? 1 : 0;
+          if (r && s.killed) {
+            r.kills += 1;
+            r.streak += 1;
+            r.bestStreak = Math.max(r.bestStreak, r.streak);
+          }
           if (s.reactionMs != null) reactions.push(s.reactionMs);
           errors.push(s.errorDeg);
           // Flick analysis from crosshair path slice
@@ -452,6 +557,7 @@ export function GameScreen(): ReactElement {
         } else {
           // Miss heatmap: offset to nearest active target in radii
           if (r) {
+            r.streak = 0;
             const aim = r.input.getAim();
             let best: TargetState | null = null;
             let bestAng = Infinity;
@@ -512,6 +618,9 @@ export function GameScreen(): ReactElement {
       holdSinceMs: -1,
       pressedEdge: false,
       kills: 0,
+      streak: 0,
+      bestStreak: 0,
+      countdownMs: COUNTDOWN_MS,
       simTargets: [],
       seed,
       over: false,
@@ -533,10 +642,17 @@ export function GameScreen(): ReactElement {
     const endAtMs = scenario.durationSec * 1000;
     const loop = createFixedLoop(
       {
-        step: (dtSec, simTimeMs) => {
+        step: (dtSec) => {
           const r = run.current;
           if (!r || r.over) return;
           if (!input.isLocked()) return; // paused when pointer unlocked
+          if (r.countdownMs > 0) {
+            r.countdownMs = Math.max(0, r.countdownMs - dtSec * 1000);
+            return;
+          }
+          // Play clock = sim time: it only advances while locked and after the
+          // pre-roll, so briefing/pause time never eats into the run.
+          const simTimeMs = sim.time;
           const dtMs = dtSec * 1000;
           // Track aim-at-spawn for newly visible targets
           const actives = sim.collectActive(r.simTargets);
@@ -591,7 +707,7 @@ export function GameScreen(): ReactElement {
           }
           sim.step(dtMs);
 
-          if (simTimeMs >= endAtMs) {
+          if (sim.time >= endAtMs) {
             r.over = true;
             void finishRun();
           }
@@ -609,6 +725,8 @@ export function GameScreen(): ReactElement {
               timeLeft: Math.max(0, Math.ceil((endAtMs - sim.time) / 1000)),
               fps: Math.round(tele.fps),
               itp: tele.inputToPhotonMs,
+              streak: r.streak,
+              countdown: Math.ceil(r.countdownMs / 1000),
             });
           }
         },
@@ -713,7 +831,7 @@ export function GameScreen(): ReactElement {
 
     const onDown = (e: MouseEvent): void => {
       const r = run.current;
-      if (!r || !input.isLocked() || r.over) return;
+      if (!r || !input.isLocked() || r.over || r.countdownMs > 0) return;
       if (e.button !== 0) return;
       const simTimeMs = sim.time;
       r.holding = true;
@@ -822,6 +940,12 @@ export function GameScreen(): ReactElement {
           <span className="text-faint">SHOTS </span>
           <span className="font-bold text-ink tnum">{hud.shots}</span>
         </div>
+        {hud.streak >= 3 && (
+          <div className="rounded-md border border-brand/60 bg-abyss/80 px-3 py-1.5">
+            <span className="text-faint">STREAK </span>
+            <span className="font-bold text-brand-soft tnum">{hud.streak}</span>
+          </div>
+        )}
       </div>
       <div
         className="absolute right-4 top-4 rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5 font-mono text-xs text-mist tnum"
@@ -833,6 +957,18 @@ export function GameScreen(): ReactElement {
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
         {scenario.title} · {scenario.durationSec}s · ESC pauses
       </div>
+
+      {locked && hud.countdown > 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          role="status"
+          aria-live="assertive"
+        >
+          <span className="font-display text-8xl font-bold text-brand-soft tnum">
+            {hud.countdown}
+          </span>
+        </div>
+      )}
 
       {/* Pointer-lock overlay — drill briefing card on the range */}
       {!locked && !paused && (

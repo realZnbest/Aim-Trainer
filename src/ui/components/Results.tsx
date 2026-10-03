@@ -1,8 +1,8 @@
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { Button, Chip, ReticleMark } from './primitives';
-import { listSessions } from '@/persistence/db';
+import { listSessions, personalBests } from '@/persistence/db';
 import { downloadText, sessionsToCsv } from '../export';
 import { cn } from '../cn';
 
@@ -53,6 +53,32 @@ export function Results(): ReactElement {
   const setView = useApp((s) => s.setView);
   const scenarioId = useApp((s) => s.scenarioId);
 
+  const [prevBest, setPrevBest] = useState<number | null | undefined>(undefined);
+  const startedAt = lastResult?.session.startedAt;
+  const runScenario = lastResult?.session.scenarioId;
+  useEffect(() => {
+    if (!startedAt || !runScenario) return;
+    let alive = true;
+    personalBests(startedAt)
+      .then((b) => {
+        if (alive) setPrevBest(b[runScenario] ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [startedAt, runScenario]);
+
+  // Enter = play again, Esc = menu (hands stay on the mouse/keyboard, no hunting for buttons)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Enter') startScenario(useApp.getState().scenarioId);
+      else if (e.key === 'Escape') setView('menu');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [startScenario, setView]);
+
   if (!lastResult) {
     return (
       <div className="p-8">
@@ -101,6 +127,21 @@ export function Results(): ReactElement {
             <div className="font-display text-7xl font-bold leading-none text-brand-soft tnum">
               {s.score}
             </div>
+            {prevBest !== undefined && (
+              <div className="mt-2 font-mono text-xs uppercase tracking-wider tnum">
+                {prevBest === null ? (
+                  <span className="text-steel">{t('firstRun')}</span>
+                ) : s.score > prevBest ? (
+                  <span className="text-success">
+                    {t('newBest')} +{s.score - prevBest}
+                  </span>
+                ) : (
+                  <span className="text-faint">
+                    {t('best')} {prevBest} ({s.score - prevBest})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex gap-6 text-right">
             <div>

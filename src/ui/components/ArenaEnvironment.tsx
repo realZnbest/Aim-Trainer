@@ -85,14 +85,29 @@ export function computeDims(s: Scenario): ArenaDims {
   const wallW = sideX * 2 + 16;
   const wallH = ceilY - floorY;
   const wallD = backZ - frontZ;
-  return { effX, effY, minD, maxD, floorY, ceilY, sideX, frontZ, backZ, wallW, wallH, wallD, centerZ: (backZ + frontZ) / 2 };
+  return {
+    effX,
+    effY,
+    minD,
+    maxD,
+    floorY,
+    ceilY,
+    sideX,
+    frontZ,
+    backZ,
+    wallW,
+    wallH,
+    wallD,
+    centerZ: (backZ + frontZ) / 2,
+  };
 }
 
 /** Evenly spaced z slots between back and front, capped count for huge rooms. */
 function zSlots(backZ: number, frontZ: number, step: number, inset: number, cap: number): number[] {
   const out: number[] = [];
   const s = backZ - frontZ > 150 ? step * 2 : step;
-  for (let z = backZ - inset; z > frontZ + inset && out.length < cap; z -= s) out.push(Math.round(z * 10) / 10);
+  for (let z = backZ - inset; z > frontZ + inset && out.length < cap; z -= s)
+    out.push(Math.round(z * 10) / 10);
   return out;
 }
 
@@ -129,7 +144,10 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
         <planeGeometry args={[d.wallW + 14, d.wallD + 14]} />
         <meshStandardMaterial color="#0c152b" roughness={0.95} metalness={0.05} />
       </mesh>
-      <gridHelper args={[layout.gridSize, layout.gridDiv, '#20355f', '#141f3a']} position={[0, d.floorY + 0.02, d.centerZ]} />
+      <gridHelper
+        args={[layout.gridSize, layout.gridDiv, '#20355f', '#141f3a']}
+        position={[0, d.floorY + 0.02, d.centerZ]}
+      />
 
       {/* ---------- front (target) wall: intentionally bare — zero distraction behind targets ---------- */}
       <mesh position={[0, layout.midY, d.frontZ]}>

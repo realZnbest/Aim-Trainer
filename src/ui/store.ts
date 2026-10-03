@@ -4,6 +4,7 @@
  * @module ui/store
  */
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Scenario } from '@/scenarios/schema';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import type { SessionRecord } from '@/persistence/db';
@@ -75,64 +76,92 @@ interface AppState {
   scenario: () => Scenario;
 }
 
-export const useApp = create<AppState>((set, get) => ({
-  view: 'menu',
-  scenarioId: 'gridshot',
-  custom: null,
-  runId: 0,
-  consent: 'unknown',
-  lastResult: null,
-  crosshair: {
-    color: '#ffffff',
-    gap: 4,
-    thickness: 2,
-    length: 8,
-    dot: true,
-    outline: true,
-    alpha: 1,
-  },
-  sens: {
-    cm360: 30,
-    dpi: 800,
-    game: 'valorant',
-    gameSens: 0.35,
-    multX: 1,
-    multY: 1,
-    invertY: false,
-  },
-  video: {
-    fov: 103,
-    resolutionScale: 1,
-    fpsCap: 240,
-    antialias: true,
-    bloom: false,
-    contrast: 1.15,
-    brightness: 1,
-  },
-  hitSound: 'click',
-  masterVolume: 0.8,
-  hitVolume: 0.9,
-  colorblind: 'none',
+export const useApp = create<AppState>()(
+  persist(
+    (set, get) => ({
+      view: 'menu',
+      scenarioId: 'gridshot',
+      custom: null,
+      runId: 0,
+      consent: 'unknown',
+      lastResult: null,
+      crosshair: {
+        color: '#ffffff',
+        gap: 4,
+        thickness: 2,
+        length: 8,
+        dot: true,
+        outline: true,
+        alpha: 1,
+      },
+      sens: {
+        cm360: 30,
+        dpi: 800,
+        game: 'valorant',
+        gameSens: 0.35,
+        multX: 1,
+        multY: 1,
+        invertY: false,
+      },
+      video: {
+        fov: 103,
+        resolutionScale: 1,
+        fpsCap: 240,
+        antialias: true,
+        bloom: false,
+        contrast: 1.15,
+        brightness: 1,
+      },
+      hitSound: 'click',
+      masterVolume: 0.8,
+      hitVolume: 0.9,
+      colorblind: 'none',
 
-  setView: (view) => set({ view }),
-  startScenario: (scenarioId) =>
-    set((s) => ({ scenarioId, custom: null, view: 'game', runId: s.runId + 1 })),
-  startCustom: (custom) =>
-    set((s) => ({ scenarioId: custom.id, custom, view: 'game', runId: s.runId + 1 })),
-  setResult: (lastResult) => set({ lastResult, view: 'results' }),
-  setConsent: (consent) => set({ consent }),
-  patchCrosshair: (p) => set((s) => ({ crosshair: { ...s.crosshair, ...p } })),
-  patchSens: (p) => set((s) => ({ sens: { ...s.sens, ...p } })),
-  patchVideo: (p) => set((s) => ({ video: { ...s.video, ...p } })),
-  setHitSound: (hitSound) => set({ hitSound }),
-  setVolumes: (masterVolume, hitVolume) => set({ masterVolume, hitVolume }),
-  setColorblind: (colorblind) => set({ colorblind }),
-  scenario: () => {
-    const custom = get().custom;
-    if (custom) return custom;
-    const id = get().scenarioId;
-    const found = BUILT_IN_SCENARIOS.find((s) => s.id === id);
-    if (!found) throw new Error(`Unknown scenario: ${id}`);
-    return found;
-  },
-}));
+      setView: (view) => set({ view }),
+      startScenario: (scenarioId) =>
+        set((s) => ({ scenarioId, custom: null, view: 'game', runId: s.runId + 1 })),
+      startCustom: (custom) =>
+        set((s) => ({ scenarioId: custom.id, custom, view: 'game', runId: s.runId + 1 })),
+      setResult: (lastResult) => set({ lastResult, view: 'results' }),
+      setConsent: (consent) => set({ consent }),
+      patchCrosshair: (p) => set((s) => ({ crosshair: { ...s.crosshair, ...p } })),
+      patchSens: (p) => set((s) => ({ sens: { ...s.sens, ...p } })),
+      patchVideo: (p) => set((s) => ({ video: { ...s.video, ...p } })),
+      setHitSound: (hitSound) => set({ hitSound }),
+      setVolumes: (masterVolume, hitVolume) => set({ masterVolume, hitVolume }),
+      setColorblind: (colorblind) => set({ colorblind }),
+      scenario: () => {
+        const custom = get().custom;
+        if (custom) return custom;
+        const id = get().scenarioId;
+        const found = BUILT_IN_SCENARIOS.find((s) => s.id === id);
+        if (!found) throw new Error(`Unknown scenario: ${id}`);
+        return found;
+      },
+    }),
+    {
+      name: 'aim-trainer-settings',
+      version: 1,
+      // Settings only — view/run/result state is session-local.
+      partialize: (s) => ({
+        consent: s.consent,
+        crosshair: s.crosshair,
+        sens: s.sens,
+        video: s.video,
+        hitSound: s.hitSound,
+        masterVolume: s.masterVolume,
+        hitVolume: s.hitVolume,
+        colorblind: s.colorblind,
+      }),
+      // Storage can throw (private mode / blocked site data): fall back to in-memory.
+      storage: createJSONStorage(() => {
+        try {
+          localStorage.getItem('aim-trainer-settings');
+          return localStorage;
+        } catch {
+          return { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
+        }
+      }),
+    },
+  ),
+);

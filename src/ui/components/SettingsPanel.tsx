@@ -10,7 +10,7 @@ const GAMES = ['valorant', 'cs2', 'apex', 'overwatch', 'fortnite'] as const;
 type GameOpt = (typeof GAMES)[number];
 
 export function SettingsPanel(): ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const setView = useApp((s) => s.setView);
   const crosshair = useApp((s) => s.crosshair);
   const patchCrosshair = useApp((s) => s.patchCrosshair);
@@ -416,6 +416,21 @@ export function SettingsPanel(): ReactElement {
           <p className="mt-3 text-xs leading-relaxed text-faint">
             Web Audio pre-decoded buffers, latencyHint interactive — zero decode in the hot path.
           </p>
+        </Card>
+
+        <Card>
+          <h2 className="font-display font-semibold uppercase tracking-tight">{t('language')}</h2>
+          <div className="mt-3 flex gap-2" role="group" aria-label={t('language')}>
+            {(['en', 'th'] as const).map((lng) => (
+              <Button
+                key={lng}
+                variant={i18n.resolvedLanguage === lng ? 'primary' : 'ghost'}
+                onClick={() => void i18n.changeLanguage(lng)}
+              >
+                {lng === 'en' ? 'English' : 'ไทย'}
+              </Button>
+            ))}
+          </div>
         </Card>
       </div>
     </div>

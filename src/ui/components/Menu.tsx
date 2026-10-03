@@ -1,9 +1,10 @@
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import { Button, Chip, Meter, ReticleMark } from './primitives';
 import { DrillPreview } from './DrillPreview';
+import { personalBests } from '@/persistence/db';
 
 /** Drill dossier metadata: focus + difficulty are authored coaching facts. */
 const DOSSIER: Record<string, { focus: string; difficulty: number }> = {
@@ -22,6 +23,19 @@ export function Menu(): ReactElement {
   const { t } = useTranslation();
   const startScenario = useApp((s) => s.startScenario);
   const setView = useApp((s) => s.setView);
+  const [bests, setBests] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let alive = true;
+    personalBests()
+      .then((b) => {
+        if (alive) setBests(b);
+      })
+      .catch(() => undefined); // IndexedDB unavailable: menu works without PBs
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="mx-auto max-w-6xl px-6 pb-16 pt-8">
@@ -82,6 +96,11 @@ export function Menu(): ReactElement {
                 </p>
                 <p className="mt-3 border-t border-linesoft pt-3 font-mono text-[11px] uppercase tracking-wider text-faint tnum">
                   {s.durationSec}s · {s.targetCount} tgt · {s.movementProfile}
+                  {bests[s.id] != null && (
+                    <span className="float-right text-steel">
+                      {t('best')} {bests[s.id]}
+                    </span>
+                  )}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="inline-flex items-center gap-2">
