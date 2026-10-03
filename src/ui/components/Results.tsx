@@ -153,7 +153,9 @@ export function Results(): ReactElement {
               </div>
             </div>
             <div>
-              <div className="font-mono text-xs uppercase tracking-wider text-faint">Pace</div>
+              <div className="font-mono text-xs uppercase tracking-wider text-faint">
+                {t('pace')}
+              </div>
               <div className="font-display text-2xl font-semibold tnum">
                 {s.killsPerSec.toFixed(2)}
                 <span className="text-sm text-faint">/s</span>
@@ -188,12 +190,12 @@ export function Results(): ReactElement {
         className="rise mt-8 font-display text-lg font-semibold uppercase tracking-tight"
         style={{ animationDelay: '120ms' }}
       >
-        Findings + next drills
+        {t('findings')}
       </h2>
       <ol className="mt-3 flex flex-col gap-2">
         {lastResult.insights.length === 0 && (
           <p className="rise text-sm text-mist" style={{ animationDelay: '140ms' }}>
-            Clean run — no systematic weakness detected.
+            {t('cleanRun')}
           </p>
         )}
         {lastResult.insights.map((finding, i) => (

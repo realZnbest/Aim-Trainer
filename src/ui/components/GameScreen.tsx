@@ -1016,20 +1016,20 @@ export function GameScreen(): ReactElement {
         aria-label="match stats"
       >
         <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
-          <span className="text-faint">KILLS </span>
+          <span className="text-faint">{t('kills')} </span>
           <span className="font-bold text-brand-soft tnum">{hud.kills}</span>
         </div>
         <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
-          <span className="text-faint">TIME </span>
+          <span className="text-faint">{t('time')} </span>
           <span className="font-bold text-ink tnum">{hud.timeLeft}s</span>
         </div>
         <div className="rounded-md border border-linesoft bg-abyss/80 px-3 py-1.5">
-          <span className="text-faint">SHOTS </span>
+          <span className="text-faint">{t('shots')} </span>
           <span className="font-bold text-ink tnum">{hud.shots}</span>
         </div>
         {hud.streak >= 3 && (
           <div className="rounded-md border border-brand/60 bg-abyss/80 px-3 py-1.5">
-            <span className="text-faint">STREAK </span>
+            <span className="text-faint">{t('streak')} </span>
             <span className="font-bold text-brand-soft tnum">{hud.streak}</span>
           </div>
         )}
@@ -1042,7 +1042,7 @@ export function GameScreen(): ReactElement {
         {hud.fps} FPS · ITP ~{hud.itp.toFixed(1)}ms
       </div>
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
-        {scenario.title} · {scenario.durationSec}s · ESC pauses
+        {scenario.title} · {scenario.durationSec}s · {t('escPauses')}
       </div>
 
       {locked && hud.countdown > 0 && (
@@ -1089,7 +1089,7 @@ export function GameScreen(): ReactElement {
           }}
         >
           <span className="font-display text-2xl font-bold uppercase tracking-tight">
-            Paused — click to resume
+            {t('pausedResume')}
           </span>
         </button>
       )}
@@ -1101,7 +1101,7 @@ export function GameScreen(): ReactElement {
           setView('menu');
         }}
       >
-        Quit (ESC)
+        {t('quit')}
       </button>
     </div>
   );

@@ -46,9 +46,7 @@ export function Menu(): ReactElement {
             <h1 className="font-display text-2xl font-bold uppercase leading-none tracking-tight">
               {t('appName')}
             </h1>
-            <p className="mt-1 text-[13px] text-mist">
-              Low-latency input · deterministic sim · actionable analytics
-            </p>
+            <p className="mt-1 text-[13px] text-mist">{t('tagline')}</p>
           </div>
         </div>
         <nav className="flex gap-2" aria-label="primary">
@@ -66,7 +64,7 @@ export function Menu(): ReactElement {
           {t('scenarios')}
         </h2>
         <span className="font-mono text-xs text-faint tnum">
-          {BUILT_IN_SCENARIOS.length} DRILLS
+          {BUILT_IN_SCENARIOS.length} {t('drills')}
         </span>
       </div>
 
@@ -109,14 +107,14 @@ export function Menu(): ReactElement {
                       label={`${s.title} difficulty ${String(d.difficulty)} of 5`}
                     />
                     <span className="font-mono text-[11px] uppercase tracking-wider text-faint">
-                      Difficulty
+                      {t('difficulty')}
                     </span>
                   </span>
                   <Button
                     onClick={() => (s.id === 'sandbox' ? setView('sandbox') : startScenario(s.id))}
                     ariaLabel={s.id === 'sandbox' ? 'customize sandbox' : `start ${s.title}`}
                   >
-                    {s.id === 'sandbox' ? 'Customize →' : `${t('start')} →`}
+                    {s.id === 'sandbox' ? `${t('customize')} →` : `${t('start')} →`}
                   </Button>
                 </div>
               </div>
@@ -126,11 +124,8 @@ export function Menu(): ReactElement {
       </ol>
 
       <footer className="mt-8 flex flex-wrap justify-between gap-3 text-xs text-faint">
-        <span className="font-mono">KEYS 1 MENU · 2 DASHBOARD · 3 SETTINGS</span>
-        <span className="max-w-md">
-          Safari note: Pointer Lock needs macOS 16+ and a user click; iOS touch aiming is
-          intentionally unsupported.
-        </span>
+        <span className="font-mono">{t('keysHint')}</span>
+        <span className="max-w-md">{t('safariNote')}</span>
       </footer>
     </div>
   );
