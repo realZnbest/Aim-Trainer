@@ -44,4 +44,17 @@ test.describe('aim trainer e2e', () => {
     await page.getByRole('button', { name: 'start custom drill' }).click();
     await expect(page.getByText('Click to lock mouse')).toBeVisible();
   });
+
+  test('map picker is on the menu and the choice persists', async ({ page }) => {
+    await page.goto('/');
+    const neon = page.getByRole('radio', { name: 'map neon' });
+    await expect(neon).toHaveAttribute('aria-checked', 'false');
+    await neon.click();
+    await expect(neon).toHaveAttribute('aria-checked', 'true');
+    await page.reload();
+    await expect(page.getByRole('radio', { name: 'map neon' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
 });

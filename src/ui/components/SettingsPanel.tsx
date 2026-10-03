@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { MAP_THEMES, type MapTheme } from '../arenaThemes';
+import { MapPicker } from './MapPicker';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { Button, Card, ReticleMark } from './primitives';
@@ -343,20 +343,11 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ bloom: v })}
               />
             </Row>
-            <Row label={t('set_map')}>
-              <select
-                aria-label="map theme"
-                className="field"
-                value={video.mapTheme}
-                onChange={(e) => patchVideo({ mapTheme: e.target.value as MapTheme })}
-              >
-                {MAP_THEMES.map((m) => (
-                  <option key={m} value={m}>
-                    {t(`map_${m}`)}
-                  </option>
-                ))}
-              </select>
-            </Row>
+            <div className="py-3">
+              <div className="mb-2 text-sm text-mist">{t('set_map')}</div>
+              <MapPicker />
+            </div>
+
             <Row label={t('set_target_contrast')}>
               <Num
                 aria="contrast"

@@ -4,6 +4,7 @@ import { useApp } from '../store';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import { Button, Chip, Meter, ReticleMark } from './primitives';
 import { DrillPreview } from './DrillPreview';
+import { MapPicker } from './MapPicker';
 import { scenarioText } from '../scenarioText';
 import { personalBests } from '@/persistence/db';
 
@@ -59,6 +60,13 @@ export function Menu(): ReactElement {
           </Button>
         </nav>
       </header>
+
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="font-mono text-xs uppercase tracking-wider text-faint">
+          {t('set_map')}
+        </span>
+        <MapPicker compact />
+      </div>
 
       <div className="mt-8 flex items-baseline justify-between">
         <h2 className="font-display text-xl font-semibold uppercase tracking-tight">
