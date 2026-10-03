@@ -71,6 +71,9 @@ interface RunRefs {
   pressedEdge: boolean;
   kills: number;
   streak: number;
+  /** Visual-only kill bursts (ring buffer; never touches sim state or RNG). */
+  bursts: Burst[];
+  burstIdx: number;
   bestStreak: number;
   /** Pre-roll left (ms) after the first lock; sim + clock are frozen until 0. */
   countdownMs: number;
@@ -80,6 +83,33 @@ interface RunRefs {
 }
 
 const COUNTDOWN_MS = 3000;
+const BURST_POOL = 16;
+const BURST_MS = 380;
+const SHARDS = 8;
+
+interface Burst {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  t0: number;
+}
+
+/** Shard directions: cube corners, normalised. Fixed table — no RNG, no allocation per kill. */
+const K = 1 / Math.sqrt(3); // unit-length cube diagonal
+const SHARD_DIRS: readonly (readonly [number, number, number])[] = [
+  [K, K, K],
+  [-K, K, K],
+  [K, -K, K],
+  [-K, -K, K],
+  [K, K, -K],
+  [-K, K, -K],
+  [K, -K, -K],
+  [-K, -K, -K],
+];
+
+const REDUCED_MOTION =
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function mulberrySeed(): string {
   return `run-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
@@ -143,6 +173,47 @@ function TargetField({
     <instancedMesh ref={meshRef} args={[undefined, undefined, maxTargets]} frustumCulled={false}>
       <sphereGeometry args={[1, 20, 14]} />
       <meshBasicMaterial color="#ffffff" toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
+function BurstField({ run }: { run: React.MutableRefObject<RunRefs | null> }): ReactElement {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  useFrame(() => {
+    const mesh = meshRef.current;
+    const r = run.current;
+    if (!mesh || !r) return;
+    const now = performance.now();
+    for (let b = 0; b < BURST_POOL; b++) {
+      const burst = r.bursts[b] as Burst;
+      const p = (now - burst.t0) / BURST_MS;
+      const live = p >= 0 && p < 1;
+      const ease = 1 - (1 - p) * (1 - p);
+      for (let k = 0; k < SHARDS; k++) {
+        const d = SHARD_DIRS[k] as readonly [number, number, number];
+        if (live) {
+          const dist = burst.radius * (1 + 3.2 * ease);
+          dummy.position.set(burst.x + d[0] * dist, burst.y + d[1] * dist, burst.z + d[2] * dist);
+          dummy.scale.setScalar(Math.max(0.001, burst.radius * 0.32 * (1 - p)));
+        } else {
+          dummy.position.set(0, 0, 9999);
+          dummy.scale.setScalar(0.0001);
+        }
+        dummy.updateMatrix();
+        mesh.setMatrixAt(b * SHARDS + k, dummy.matrix);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, BURST_POOL * SHARDS]}
+      frustumCulled={false}
+    >
+      <sphereGeometry args={[1, 8, 6]} />
+      <meshBasicMaterial color="#a9c6ff" toneMapped={false} />
     </instancedMesh>
   );
 }
@@ -513,6 +584,17 @@ export function GameScreen(): ReactElement {
     const aimAtSpawn = new Map<number, { yaw: number; pitch: number; tMs: number }>();
 
     const sim = new Simulation(cfg, seed, {
+      onKill: (t) => {
+        const r = run.current;
+        if (!r || REDUCED_MOTION) return;
+        const b = r.bursts[r.burstIdx % BURST_POOL] as Burst;
+        r.burstIdx += 1;
+        b.x = t.position.x;
+        b.y = t.position.y;
+        b.z = t.position.z;
+        b.radius = t.radius;
+        b.t0 = performance.now();
+      },
       onShot: (s) => {
         const r = run.current;
         shots.push(s);
@@ -522,6 +604,8 @@ export function GameScreen(): ReactElement {
             r.streak += 1;
             r.bestStreak = Math.max(r.bestStreak, r.streak);
           }
+          // Hit confirmation rises ~a semitone-ish per streak step (capped) — misses stay silent.
+          soundBank.play(hitSound, 1 + Math.min(r?.streak ?? 0, 12) * 0.03);
           if (s.reactionMs != null) reactions.push(s.reactionMs);
           errors.push(s.errorDeg);
           // Flick analysis from crosshair path slice
@@ -619,6 +703,8 @@ export function GameScreen(): ReactElement {
       pressedEdge: false,
       kills: 0,
       streak: 0,
+      bursts: Array.from({ length: BURST_POOL }, () => ({ x: 0, y: 0, z: 0, radius: 0, t0: -1e9 })),
+      burstIdx: 0,
       bestStreak: 0,
       countdownMs: COUNTDOWN_MS,
       simTargets: [],
@@ -702,7 +788,7 @@ export function GameScreen(): ReactElement {
                 pitchRad: aim.pitchRad,
                 trigger: true,
               });
-              soundBank.play(hitSound);
+              soundBank.playShot();
             }
           }
           sim.step(dtMs);
@@ -847,7 +933,7 @@ export function GameScreen(): ReactElement {
           pitchRad: aimNow.pitchRad,
           trigger: true,
         });
-        soundBank.play(hitSound);
+        soundBank.playShot();
       }
     };
     const onUp = (e: MouseEvent): void => {
@@ -886,6 +972,7 @@ export function GameScreen(): ReactElement {
             target lane is never occluded and nothing floats. */}
         <ArenaEnvironment scenario={scenario} />
         <CameraRig run={run} />
+        <BurstField run={run} />
         <WeaponModel run={run} visible={!paused} />
         {/* Targets stay range-blue (#3772A4) — decoupled from crosshair color
             so the sight (white) always reads against the target. */}

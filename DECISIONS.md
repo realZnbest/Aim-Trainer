@@ -86,3 +86,12 @@ Five static targets like Gridshot was a duplicate. TSS now uses spawnPattern
 `switch`: each kill respawns synchronously at the farthest of 6 seeded
 candidates from the kill point (avg >7m in a 12m lane), so the next shot is
 always a cross-field flick — prioritization + switching, never nearby taps.
+
+## D-16: Shot vs. hit audio + kill bursts (supersedes D-10's "no particles")
+
+Every trigger pull plays a dull muzzle report (`playShot`); the hit cue plays only
+on hits, pitched up with the kill streak (cap +36%), so a miss is audibly distinct.
+Kills spawn 8 shards from a 16-slot ring buffer drawn as ONE instanced mesh
+(128 instances, no per-kill allocation). Purely visual: driven by `onKill` +
+`performance.now()`, never touches sim state or the RNG, so determinism/replays
+are unaffected. Skipped under `prefers-reduced-motion`.
