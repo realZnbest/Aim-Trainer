@@ -115,7 +115,7 @@ function mulberrySeed(): string {
   return `run-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
-function CameraRig({ run }: { run: React.MutableRefObject<RunRefs | null> }): null {
+function CameraRig({ run }: { run: React.RefObject<RunRefs | null> }): null {
   const { camera } = useThree();
   useFrame(() => {
     const r = run.current;
@@ -136,7 +136,7 @@ function TargetField({
   color,
   dormantColor = '#1d2a4a',
 }: {
-  run: React.MutableRefObject<RunRefs | null>;
+  run: React.RefObject<RunRefs | null>;
   maxTargets: number;
   color: string;
   dormantColor?: string;
@@ -177,7 +177,7 @@ function TargetField({
   );
 }
 
-function BurstField({ run }: { run: React.MutableRefObject<RunRefs | null> }): ReactElement {
+function BurstField({ run }: { run: React.RefObject<RunRefs | null> }): ReactElement {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   useFrame(() => {
@@ -222,7 +222,7 @@ function WeaponModel({
   run,
   visible,
 }: {
-  run: React.MutableRefObject<RunRefs | null>;
+  run: React.RefObject<RunRefs | null>;
   visible: boolean;
 }): null | ReactElement {
   const { camera } = useThree();
