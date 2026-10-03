@@ -67,7 +67,8 @@ export function App(): ReactElement {
             </Suspense>
           )}
           {view === 'settings' && <SettingsPanel />}
-          <ConsentBanner />
+          {/* Not over the arena: it would cover the pointer-lock briefing. */}
+          {view !== 'game' && <ConsentBanner />}
         </div>
       </MobileBlock>
     </ErrorBoundary>

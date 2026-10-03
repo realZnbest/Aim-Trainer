@@ -20,6 +20,8 @@ export interface Insight {
   severity: 'info' | 'warning' | 'critical';
   title: string;
   detail: string;
+  /** Pre-formatted values interpolated into localized copy (`{{name}}`). */
+  params: Record<string, string>;
   recommendedScenarioId: string;
 }
 
@@ -32,6 +34,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: s.accuracy < 0.6 ? 'critical' : 'warning',
       title: 'Accuracy below 75%',
       detail: `Hit rate ${(s.accuracy * 100).toFixed(1)}%. Slow down and confirm crosshair placement before clicking — try Microshot.`,
+      params: { v: (s.accuracy * 100).toFixed(1) },
       recommendedScenarioId: 'microshot',
     });
   }
@@ -41,6 +44,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'warning',
       title: 'Inconsistent reaction time',
       detail: `Reaction SD ${s.reaction.sd.toFixed(0)}ms is high. Reflex drills with random delays will stabilize first-shot timing.`,
+      params: { v: s.reaction.sd.toFixed(0) },
       recommendedScenarioId: 'reflex-reactive',
     });
   }
@@ -50,6 +54,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'warning',
       title: 'Systematic overshoot',
       detail: `${(s.flick.overshootRatio * 100).toFixed(0)}% of flicks overshoot. Lower sensitivity ~5% or drill Switching with a metronome pace.`,
+      params: { v: (s.flick.overshootRatio * 100).toFixed(0) },
       recommendedScenarioId: 'switching',
     });
   }
@@ -59,6 +64,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'warning',
       title: 'Systematic undershoot',
       detail: `${(s.flick.undershootRatio * 100).toFixed(0)}% of flicks fall short. Commit to the flick — Spidershot at +1 target size.`,
+      params: { v: (s.flick.undershootRatio * 100).toFixed(0) },
       recommendedScenarioId: 'spidershot',
     });
   }
@@ -68,6 +74,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'warning',
       title: 'Low time on target',
       detail: `On-target ${s.tracking.timeOnTargetPct.toFixed(1)}% with RMS error ${s.tracking.rmsErrorDeg.toFixed(2)}°. Smooth-tracking (Motion) at low speed, then Strafe Track.`,
+      params: { v: s.tracking.timeOnTargetPct.toFixed(1), rms: s.tracking.rmsErrorDeg.toFixed(2) },
       recommendedScenarioId: 'tracking-motion',
     });
   }
@@ -77,6 +84,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'info',
       title: 'Kill pace can improve',
       detail: `${s.killsPerSec.toFixed(2)} kills/s. Gridshot pushes target acquisition speed without punishing misses hard.`,
+      params: { v: s.killsPerSec.toFixed(2) },
       recommendedScenarioId: 'gridshot',
     });
   }
@@ -86,6 +94,7 @@ export function detectWeaknesses(s: SessionSummary): Insight[] {
       severity: 'info',
       title: `Aim bias: ${s.missBias}`,
       detail: `Misses cluster ${s.missBias}. Consciously hold opposite-side placement for 20 kills, then re-test.`,
+      params: { v: s.missBias },
       recommendedScenarioId: 'microshot',
     });
   }

@@ -43,7 +43,13 @@ export interface VideoSettings {
 
 export interface LastResult {
   session: Omit<SessionRecord, 'id'>;
-  insights: { id: string; title: string; detail: string; severity: string }[];
+  insights: {
+    id: string;
+    title: string;
+    detail: string;
+    params: Record<string, string>;
+    severity: string;
+  }[];
 }
 
 interface AppState {

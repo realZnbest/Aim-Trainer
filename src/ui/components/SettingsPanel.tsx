@@ -49,7 +49,7 @@ export function SettingsPanel(): ReactElement {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Card>
           <h2 className="font-display font-semibold uppercase tracking-tight">
-            {t('crosshair')} — live preview
+            {t('crosshair')} — {t('live_preview')}
           </h2>
           <div className="mb-2 mt-3 flex h-28 items-center justify-center rounded-lg border border-linesoft bg-abyss">
             <svg
@@ -90,7 +90,7 @@ export function SettingsPanel(): ReactElement {
               )}
             </svg>
           </div>
-          <Row label="Color">
+          <Row label={t('set_color')}>
             <input
               type="color"
               aria-label="crosshair color"
@@ -99,7 +99,7 @@ export function SettingsPanel(): ReactElement {
               className="h-8 w-14 cursor-pointer rounded-md border border-line bg-deep"
             />
           </Row>
-          <Row label="Gap">
+          <Row label={t('set_gap')}>
             <Num
               aria="gap"
               value={crosshair.gap}
@@ -109,7 +109,7 @@ export function SettingsPanel(): ReactElement {
               onChange={(v) => patchCrosshair({ gap: v })}
             />
           </Row>
-          <Row label="Thickness">
+          <Row label={t('set_thickness')}>
             <Num
               aria="thickness"
               value={crosshair.thickness}
@@ -119,7 +119,7 @@ export function SettingsPanel(): ReactElement {
               onChange={(v) => patchCrosshair({ thickness: v })}
             />
           </Row>
-          <Row label="Length">
+          <Row label={t('set_length')}>
             <Num
               aria="length"
               value={crosshair.length}
@@ -129,7 +129,7 @@ export function SettingsPanel(): ReactElement {
               onChange={(v) => patchCrosshair({ length: v })}
             />
           </Row>
-          <Row label="Alpha">
+          <Row label={t('set_alpha')}>
             <Num
               aria="alpha"
               value={crosshair.alpha}
@@ -139,14 +139,14 @@ export function SettingsPanel(): ReactElement {
               onChange={(v) => patchCrosshair({ alpha: v })}
             />
           </Row>
-          <Row label="Dot">
+          <Row label={t('set_dot')}>
             <Check
               aria="dot"
               checked={crosshair.dot}
               onChange={(v) => patchCrosshair({ dot: v })}
             />
           </Row>
-          <Row label="Outline">
+          <Row label={t('set_outline')}>
             <Check
               aria="outline"
               checked={crosshair.outline}
@@ -164,13 +164,13 @@ export function SettingsPanel(): ReactElement {
                 )
               }
             >
-              Export JSON
+              {t('exportJson')}
             </Button>
           </div>
           <div className="mt-2 flex gap-2">
             <input
               aria-label="valorant crosshair code"
-              placeholder="Valorant code (0;P;...)"
+              placeholder={t('valorant_code')}
               className="field w-full font-mono text-xs"
               value={valorantCode}
               onChange={(e) => setValorantCode(e.target.value)}
@@ -185,7 +185,7 @@ export function SettingsPanel(): ReactElement {
                 }
               }}
             >
-              Import
+              {t('import')}
             </Button>
           </div>
         </Card>
@@ -195,7 +195,7 @@ export function SettingsPanel(): ReactElement {
             {t('sensitivity')} — cm/360
           </h2>
           <div className="mt-2">
-            <Row label="cm/360">
+            <Row label={t('set_cm_360')}>
               <Num
                 aria="cm360"
                 value={sens.cm360}
@@ -205,7 +205,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchSens({ cm360: v })}
               />
             </Row>
-            <Row label="DPI">
+            <Row label={t('set_dpi')}>
               <Num
                 aria="dpi"
                 value={sens.dpi}
@@ -215,7 +215,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchSens({ dpi: v })}
               />
             </Row>
-            <Row label="Game reference">
+            <Row label={t('set_game_reference')}>
               <select
                 aria-label="game"
                 className="field"
@@ -238,7 +238,7 @@ export function SettingsPanel(): ReactElement {
                 ))}
               </select>
             </Row>
-            <Row label="In-game sens">
+            <Row label={t('set_in_game_sens')}>
               <Num
                 aria="game sens"
                 value={sens.gameSens}
@@ -257,7 +257,7 @@ export function SettingsPanel(): ReactElement {
                 }}
               />
             </Row>
-            <Row label="Mult X">
+            <Row label={t('set_mult_x')}>
               <Num
                 aria="multx"
                 value={sens.multX}
@@ -267,7 +267,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchSens({ multX: v })}
               />
             </Row>
-            <Row label="Mult Y">
+            <Row label={t('set_mult_y')}>
               <Num
                 aria="multy"
                 value={sens.multY}
@@ -277,7 +277,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchSens({ multY: v })}
               />
             </Row>
-            <Row label="Invert Y">
+            <Row label={t('set_invert_y')}>
               <Check
                 aria="invert y"
                 checked={sens.invertY}
@@ -298,7 +298,7 @@ export function SettingsPanel(): ReactElement {
         <Card>
           <h2 className="font-display font-semibold uppercase tracking-tight">{t('video')}</h2>
           <div className="mt-2">
-            <Row label="FOV">
+            <Row label={t('set_fov')}>
               <Num
                 aria="fov"
                 value={video.fov}
@@ -308,7 +308,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ fov: v })}
               />
             </Row>
-            <Row label="Resolution scale">
+            <Row label={t('set_resolution_scale')}>
               <Num
                 aria="res scale"
                 value={video.resolutionScale}
@@ -318,7 +318,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ resolutionScale: v })}
               />
             </Row>
-            <Row label="FPS cap">
+            <Row label={t('set_fps_cap')}>
               <Num
                 aria="fps cap"
                 value={video.fpsCap}
@@ -328,14 +328,14 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ fpsCap: v })}
               />
             </Row>
-            <Row label="Antialiasing">
+            <Row label={t('set_antialiasing')}>
               <Check
                 aria="aa"
                 checked={video.antialias}
                 onChange={(v) => patchVideo({ antialias: v })}
               />
             </Row>
-            <Row label="Target contrast">
+            <Row label={t('set_target_contrast')}>
               <Num
                 aria="contrast"
                 value={video.contrast}
@@ -345,7 +345,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ contrast: v })}
               />
             </Row>
-            <Row label="Brightness">
+            <Row label={t('set_brightness')}>
               <Num
                 aria="brightness"
                 value={video.brightness}
@@ -355,7 +355,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => patchVideo({ brightness: v })}
               />
             </Row>
-            <Row label="Colorblind palette">
+            <Row label={t('set_colorblind_palette')}>
               <select
                 aria-label="colorblind"
                 className="field"
@@ -378,7 +378,7 @@ export function SettingsPanel(): ReactElement {
         <Card>
           <h2 className="font-display font-semibold uppercase tracking-tight">{t('audio')}</h2>
           <div className="mt-2">
-            <Row label="Hit sound">
+            <Row label={t('set_hit_sound')}>
               <select
                 aria-label="hit sound"
                 className="field"
@@ -392,7 +392,7 @@ export function SettingsPanel(): ReactElement {
                 ))}
               </select>
             </Row>
-            <Row label="Master volume">
+            <Row label={t('set_master_volume')}>
               <Num
                 aria="master vol"
                 value={masterVolume}
@@ -402,7 +402,7 @@ export function SettingsPanel(): ReactElement {
                 onChange={(v) => setVolumes(v, hitVolume)}
               />
             </Row>
-            <Row label="Hit volume">
+            <Row label={t('set_hit_volume')}>
               <Num
                 aria="hit vol"
                 value={hitVolume}
@@ -413,9 +413,7 @@ export function SettingsPanel(): ReactElement {
               />
             </Row>
           </div>
-          <p className="mt-3 text-xs leading-relaxed text-faint">
-            Web Audio pre-decoded buffers, latencyHint interactive — zero decode in the hot path.
-          </p>
+          <p className="mt-3 text-xs leading-relaxed text-faint">{t('audio_note')}</p>
         </Card>
 
         <Card>

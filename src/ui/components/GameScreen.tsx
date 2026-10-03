@@ -47,6 +47,7 @@ import {
   type TrackingSample,
 } from '@/analytics';
 import type { CrosshairPathPoint } from '@/engine/types';
+import { scenarioText } from '../scenarioText';
 import { createReplay, recordEvent } from '@/analytics/replay';
 import { saveSession } from '@/persistence/db';
 
@@ -534,6 +535,7 @@ function WeaponModel({
 export function GameScreen(): ReactElement {
   const { t } = useTranslation();
   const scenario = useApp((s) => s.scenario());
+  const text = scenarioText(t, scenario);
   const runId = useApp((s) => s.runId);
   const sens = useApp((s) => s.sens);
   const video = useApp((s) => s.video);
@@ -910,6 +912,7 @@ export function GameScreen(): ReactElement {
           id: i.id,
           title: i.title,
           detail: i.detail,
+          params: i.params,
           severity: i.severity,
         })),
       });
@@ -1042,7 +1045,7 @@ export function GameScreen(): ReactElement {
         {hud.fps} FPS · ITP ~{hud.itp.toFixed(1)}ms
       </div>
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
-        {scenario.title} · {scenario.durationSec}s · {t('escPauses')}
+        {text.title} · {scenario.durationSec}s · {t('escPauses')}
       </div>
 
       {locked && hud.countdown > 0 && (
@@ -1071,9 +1074,9 @@ export function GameScreen(): ReactElement {
             {scenario.id} · {scenario.durationSec}s
           </span>
           <span className="font-display text-3xl font-bold uppercase tracking-tight">
-            {scenario.title}
+            {text.title}
           </span>
-          <span className="max-w-md text-sm text-mist">{scenario.description}</span>
+          <span className="max-w-md text-sm text-mist">{text.description}</span>
           <span className="rounded-lg bg-brand px-6 py-2.5 font-display text-sm font-semibold uppercase tracking-wide text-brand-ink">
             {t('clickToLock')}
           </span>

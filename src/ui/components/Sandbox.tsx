@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import { parseScenario, validateScenario, type Scenario } from '@/scenarios/schema';
@@ -35,6 +36,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function Sandbox(): ReactElement {
+  const { t } = useTranslation();
   const setView = useApp((s) => s.setView);
   const startCustom = useApp((s) => s.startCustom);
   const [draft, setDraft] = useState<Scenario>(freshDraft);
@@ -49,7 +51,7 @@ export function Sandbox(): ReactElement {
           <ReticleMark size={30} />
           <div>
             <h1 className="font-display text-2xl font-bold uppercase tracking-tight">
-              Sandbox editor
+              {t('sb_sandbox_editor')}
             </h1>
             <p className="mt-1 font-mono text-xs uppercase tracking-wider text-faint">
               {validation.ok ? 'valid scenario' : `${String(validation.errors.length)} problems`}
@@ -58,10 +60,10 @@ export function Sandbox(): ReactElement {
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => setDraft(freshDraft())}>
-            Reset
+            {t('sb_reset')}
           </Button>
           <Button variant="ghost" onClick={() => setView('menu')}>
-            Back to menu
+            {t('backToMenu')}
           </Button>
         </div>
       </header>
@@ -82,8 +84,8 @@ export function Sandbox(): ReactElement {
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Section title="Basics">
-          <Row label="Title">
+        <Section title={t('sb_basics')}>
+          <Row label={t('sb_title')}>
             <input
               aria-label="drill title"
               className="field w-48"
@@ -91,7 +93,7 @@ export function Sandbox(): ReactElement {
               onChange={(e) => patch({ title: e.target.value })}
             />
           </Row>
-          <Row label="Duration (s)">
+          <Row label={t('sb_duration_s')}>
             <Num
               aria="duration"
               value={draft.durationSec}
@@ -101,7 +103,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ durationSec: Math.round(v) })}
             />
           </Row>
-          <Row label="Mode tag">
+          <Row label={t('sb_mode_tag')}>
             <Select
               aria="mode tag"
               value={draft.mode}
@@ -121,8 +123,8 @@ export function Sandbox(): ReactElement {
           </Row>
         </Section>
 
-        <Section title="Targets">
-          <Row label="Size min (m)">
+        <Section title={t('sb_targets')}>
+          <Row label={t('sb_size_min_m')}>
             <Num
               aria="size min"
               value={draft.targetSize}
@@ -132,7 +134,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ targetSize: v })}
             />
           </Row>
-          <Row label="Size max (m)">
+          <Row label={t('sb_size_max_m')}>
             <Num
               aria="size max"
               value={draft.targetSizeMax}
@@ -142,7 +144,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ targetSizeMax: v })}
             />
           </Row>
-          <Row label="Shape">
+          <Row label={t('sb_shape')}>
             <Select
               aria="shape"
               value={draft.targetShape}
@@ -150,7 +152,7 @@ export function Sandbox(): ReactElement {
               options={SHAPES}
             />
           </Row>
-          <Row label="Count">
+          <Row label={t('sb_count')}>
             <Num
               aria="count"
               value={draft.targetCount}
@@ -160,7 +162,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ targetCount: Math.round(v) })}
             />
           </Row>
-          <Row label="Lifetime ms (0 = until killed)">
+          <Row label={t('sb_lifetime_ms_0_until_killed')}>
             <Num
               aria="lifetime"
               value={draft.targetLifetimeMs}
@@ -170,7 +172,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ targetLifetimeMs: Math.round(v) })}
             />
           </Row>
-          <Row label="Health (999 + auto = tracking)">
+          <Row label={t('sb_health_999_auto_tracking')}>
             <Num
               aria="health"
               value={draft.health}
@@ -182,8 +184,8 @@ export function Sandbox(): ReactElement {
           </Row>
         </Section>
 
-        <Section title="Spawn area">
-          <Row label="Volume">
+        <Section title={t('sb_spawn_area')}>
+          <Row label={t('sb_volume')}>
             <Select
               aria="volume"
               value={draft.spawnArea.volume}
@@ -195,7 +197,7 @@ export function Sandbox(): ReactElement {
               options={VOLUMES}
             />
           </Row>
-          <Row label="Min distance (m)">
+          <Row label={t('sb_min_distance_m')}>
             <Num
               aria="min distance"
               value={draft.spawnArea.minDistance}
@@ -205,7 +207,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ spawnArea: { ...draft.spawnArea, minDistance: v } })}
             />
           </Row>
-          <Row label="Max distance (m)">
+          <Row label={t('sb_max_distance_m')}>
             <Num
               aria="max distance"
               value={draft.spawnArea.maxDistance}
@@ -217,7 +219,7 @@ export function Sandbox(): ReactElement {
           </Row>
           {draft.spawnArea.volume === 'box' && (
             <>
-              <Row label="Half-width X">
+              <Row label={t('sb_half_width_x')}>
                 <Num
                   aria="half x"
                   value={draft.spawnArea.halfExtents?.x ?? 6}
@@ -238,7 +240,7 @@ export function Sandbox(): ReactElement {
                   }
                 />
               </Row>
-              <Row label="Half-height Y">
+              <Row label={t('sb_half_height_y')}>
                 <Num
                   aria="half y"
                   value={draft.spawnArea.halfExtents?.y ?? 4}
@@ -262,7 +264,7 @@ export function Sandbox(): ReactElement {
             </>
           )}
           {draft.spawnArea.volume === 'sphere' && (
-            <Row label="Radius">
+            <Row label={t('sb_radius')}>
               <Num
                 aria="radius"
                 value={draft.spawnArea.radius ?? 5}
@@ -274,7 +276,7 @@ export function Sandbox(): ReactElement {
             </Row>
           )}
           {draft.spawnArea.volume === 'cone' && (
-            <Row label="Cone half-angle°">
+            <Row label={t('sb_cone_half_angle')}>
               <Num
                 aria="cone angle"
                 value={draft.spawnArea.coneHalfAngleDeg ?? 14}
@@ -285,7 +287,7 @@ export function Sandbox(): ReactElement {
               />
             </Row>
           )}
-          <Row label="Pattern">
+          <Row label={t('sb_pattern')}>
             <Select
               aria="pattern"
               value={draft.spawnPattern}
@@ -295,7 +297,7 @@ export function Sandbox(): ReactElement {
           </Row>
           {draft.spawnPattern === 'grid' && (
             <>
-              <Row label="Grid cols">
+              <Row label={t('sb_grid_cols')}>
                 <Num
                   aria="grid cols"
                   value={draft.gridCols ?? 3}
@@ -305,7 +307,7 @@ export function Sandbox(): ReactElement {
                   onChange={(v) => patch({ gridCols: Math.round(v) })}
                 />
               </Row>
-              <Row label="Grid rows">
+              <Row label={t('sb_grid_rows')}>
                 <Num
                   aria="grid rows"
                   value={draft.gridRows ?? 3}
@@ -317,7 +319,7 @@ export function Sandbox(): ReactElement {
               </Row>
             </>
           )}
-          <Row label="Silent gap min ms (reflex)">
+          <Row label={t('sb_silent_gap_min_ms_reflex')}>
             <Num
               aria="gap min"
               value={draft.spawnDelayMinMs ?? 0}
@@ -327,7 +329,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ spawnDelayMinMs: Math.round(v) })}
             />
           </Row>
-          <Row label="Silent gap max ms">
+          <Row label={t('sb_silent_gap_max_ms')}>
             <Num
               aria="gap max"
               value={draft.spawnDelayMaxMs ?? 0}
@@ -339,8 +341,8 @@ export function Sandbox(): ReactElement {
           </Row>
         </Section>
 
-        <Section title="Movement">
-          <Row label="Profile">
+        <Section title={t('sb_movement')}>
+          <Row label={t('sb_profile')}>
             <Select
               aria="movement"
               value={draft.movementProfile}
@@ -348,7 +350,7 @@ export function Sandbox(): ReactElement {
               options={MOVEMENTS}
             />
           </Row>
-          <Row label="Min speed (m/s)">
+          <Row label={t('sb_min_speed_m_s')}>
             <Num
               aria="min speed"
               value={draft.minSpeed}
@@ -358,7 +360,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ minSpeed: v })}
             />
           </Row>
-          <Row label="Max speed (m/s)">
+          <Row label={t('sb_max_speed_m_s')}>
             <Num
               aria="max speed"
               value={draft.maxSpeed}
@@ -370,8 +372,8 @@ export function Sandbox(): ReactElement {
           </Row>
         </Section>
 
-        <Section title="Weapon">
-          <Row label="Fire mode">
+        <Section title={t('sb_weapon')}>
+          <Row label={t('sb_fire_mode')}>
             <Select
               aria="fire mode"
               value={draft.weapon.fireMode}
@@ -383,7 +385,7 @@ export function Sandbox(): ReactElement {
               options={FIRE_MODES}
             />
           </Row>
-          <Row label="RPM">
+          <Row label={t('sb_rpm')}>
             <Num
               aria="rpm"
               value={draft.weapon.rpm}
@@ -393,7 +395,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ weapon: { ...draft.weapon, rpm: Math.round(v) } })}
             />
           </Row>
-          <Row label="Spread°">
+          <Row label={t('sb_spread')}>
             <Num
               aria="spread"
               value={draft.weapon.spreadDeg}
@@ -403,7 +405,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ weapon: { ...draft.weapon, spreadDeg: v } })}
             />
           </Row>
-          <Row label="Recoil°">
+          <Row label={t('sb_recoil')}>
             <Num
               aria="recoil"
               value={draft.weapon.recoilDeg}
@@ -413,7 +415,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ weapon: { ...draft.weapon, recoilDeg: v } })}
             />
           </Row>
-          <Row label="Magazine">
+          <Row label={t('sb_magazine')}>
             <Num
               aria="magazine"
               value={draft.weapon.magazine}
@@ -423,7 +425,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ weapon: { ...draft.weapon, magazine: Math.round(v) } })}
             />
           </Row>
-          <Row label="Reload ms">
+          <Row label={t('sb_reload_ms')}>
             <Num
               aria="reload"
               value={draft.weapon.reloadMs}
@@ -435,8 +437,8 @@ export function Sandbox(): ReactElement {
           </Row>
         </Section>
 
-        <Section title="Scoring + difficulty">
-          <Row label="Weight accuracy">
+        <Section title={t('sb_scoring_difficulty')}>
+          <Row label={t('sb_weight_accuracy')}>
             <Num
               aria="w acc"
               value={draft.scoringWeights.accuracy}
@@ -446,7 +448,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ scoringWeights: { ...draft.scoringWeights, accuracy: v } })}
             />
           </Row>
-          <Row label="Weight speed">
+          <Row label={t('sb_weight_speed')}>
             <Num
               aria="w speed"
               value={draft.scoringWeights.speed}
@@ -456,7 +458,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ scoringWeights: { ...draft.scoringWeights, speed: v } })}
             />
           </Row>
-          <Row label="Weight precision">
+          <Row label={t('sb_weight_precision')}>
             <Num
               aria="w prec"
               value={draft.scoringWeights.precision}
@@ -466,7 +468,7 @@ export function Sandbox(): ReactElement {
               onChange={(v) => patch({ scoringWeights: { ...draft.scoringWeights, precision: v } })}
             />
           </Row>
-          <Row label="Adaptive difficulty">
+          <Row label={t('sb_adaptive_difficulty')}>
             <Check
               aria="adaptive"
               checked={draft.difficultyScaling.enabled}
@@ -485,11 +487,13 @@ export function Sandbox(): ReactElement {
           }}
           ariaLabel="start custom drill"
         >
-          Start drill →
+          {t('sb_start_drill')}
         </Button>
       </div>
       {!validation.ok && (
-        <p className="mt-2 text-right text-xs text-danger">Fix the problems above to start.</p>
+        <p className="mt-2 text-right text-xs text-danger">
+          {t('sb_fix_the_problems_above_to_start')}
+        </p>
       )}
     </div>
   );

@@ -48,7 +48,7 @@ export function Dashboard(): ReactElement {
               {t('dashboard')}
             </h1>
             <p className="mt-1 font-mono text-xs uppercase tracking-wider text-faint">
-              {rows.length} sessions on record
+              {rows.length} {t('sessions_on_record')}
             </p>
           </div>
         </div>
@@ -75,20 +75,24 @@ export function Dashboard(): ReactElement {
 
       {rows.length === 0 ? (
         <Card>
-          <p className="text-sm text-mist">
-            No sessions yet. Play a scenario to start building your progression graph.
-          </p>
+          <p className="text-sm text-mist">{t('no_sessions')}</p>
         </Card>
       ) : (
         <>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Chip tone="pink">Best {best}</Chip>
-            <Chip tone="steel">Avg acc {avgAcc.toFixed(1)}%</Chip>
-            <Chip tone="mute">Latest {rows[rows.length - 1]?.scenarioId}</Chip>
+            <Chip tone="pink">
+              {t('best')} {best}
+            </Chip>
+            <Chip tone="steel">
+              {t('avg_acc')} {avgAcc.toFixed(1)}%
+            </Chip>
+            <Chip tone="mute">
+              {t('latest')} {rows[rows.length - 1]?.scenarioId}
+            </Chip>
           </div>
           <Card className="mt-3">
             <h2 className="mb-2 font-display font-semibold uppercase tracking-tight">
-              Score progression
+              {t('score_progression')}
             </h2>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -133,7 +137,7 @@ export function Dashboard(): ReactElement {
           </Card>
           <Card className="mt-3">
             <h2 className="mb-2 font-display font-semibold uppercase tracking-tight">
-              Accuracy % per session
+              {t('accuracy_per_session')}
             </h2>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -169,7 +173,7 @@ export function Dashboard(): ReactElement {
           </Card>
 
           <h2 className="mt-8 font-display text-lg font-semibold uppercase tracking-tight">
-            Session ledger
+            {t('session_ledger')}
           </h2>
           <ol className="mt-2 divide-y divide-linesoft border-y border-linesoft">
             {[...rows].reverse().map((r) => (

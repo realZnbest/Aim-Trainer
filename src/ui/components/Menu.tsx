@@ -4,6 +4,7 @@ import { useApp } from '../store';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import { Button, Chip, Meter, ReticleMark } from './primitives';
 import { DrillPreview } from './DrillPreview';
+import { scenarioText } from '../scenarioText';
 import { personalBests } from '@/persistence/db';
 
 /** Drill dossier metadata: focus + difficulty are authored coaching facts. */
@@ -71,6 +72,7 @@ export function Menu(): ReactElement {
       <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {BUILT_IN_SCENARIOS.map((s, i) => {
           const d = DOSSIER[s.id] ?? { focus: 'FREESTYLE', difficulty: 1 };
+          const txt = scenarioText(t, s);
           return (
             <li
               key={s.id}
@@ -84,13 +86,13 @@ export function Menu(): ReactElement {
                   <span className="font-display text-2xl font-bold text-brand tnum">
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <Chip tone="steel">{d.focus}</Chip>
+                  <Chip tone="steel">{t(`focus_${d.focus}`, { defaultValue: d.focus })}</Chip>
                 </div>
                 <div className="mt-3 font-display text-lg font-semibold leading-tight">
-                  {s.title}
+                  {txt.title}
                 </div>
                 <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] leading-snug text-mist">
-                  {s.description}
+                  {txt.description}
                 </p>
                 <p className="mt-3 border-t border-linesoft pt-3 font-mono text-[11px] uppercase tracking-wider text-faint tnum">
                   {s.durationSec}s · {s.targetCount} tgt · {s.movementProfile}

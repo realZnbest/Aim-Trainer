@@ -217,8 +217,15 @@ export function Results(): ReactElement {
                 {String(i + 1).padStart(2, '0')} · {finding.severity}
               </span>
             </div>
-            <div className="mt-1 font-display font-semibold">{finding.title}</div>
-            <p className="mt-0.5 text-sm text-mist">{finding.detail}</p>
+            <div className="mt-1 font-display font-semibold">
+              {t(`insight_${finding.id}_title`, { defaultValue: finding.title, ...finding.params })}
+            </div>
+            <p className="mt-0.5 text-sm text-mist">
+              {t(`insight_${finding.id}_detail`, {
+                defaultValue: finding.detail,
+                ...finding.params,
+              })}
+            </p>
           </li>
         ))}
       </ol>
