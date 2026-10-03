@@ -95,3 +95,15 @@ Kills spawn 8 shards from a 16-slot ring buffer drawn as ONE instanced mesh
 (128 instances, no per-kill allocation). Purely visual: driven by `onKill` +
 `performance.now()`, never touches sim state or the RNG, so determinism/replays
 are unaffected. Skipped under `prefers-reduced-motion`.
+
+## D-17: Arena themes, procedural surfaces, wired video settings
+
+Three data-only themes (`night`, `neon`, `concrete`) retint the same clear-zone
+geometry, so lane/occlusion invariants (arena.test) hold for all of them.
+Surfaces are canvas-generated panel textures (deterministic LCG, no assets) and
+reflections come from a one-shot procedural `Environment` (Lightformers): offline-first,
+no HDR download, no per-frame cost. Bloom (threshold 0.5) is optional and only catches
+bright emissives; targets sit far below it. `bloom`, `brightness`, `contrast` and
+`colorblind` existed in settings but did nothing — they are now wired (brightness scales
+all lights; contrast retints targets, default 1.15 = authored look; colorblind swaps to
+Okabe–Ito-derived target colors). Persisted settings bumped to v2 (migration enables bloom).

@@ -76,7 +76,7 @@ describe('settings persistence', () => {
     const raw = mem.getItem('aim-trainer-settings');
     expect(raw).toBeTruthy();
     const saved = JSON.parse(raw as string) as { state: Record<string, unknown>; version: number };
-    expect(saved.version).toBe(1);
+    expect(saved.version).toBe(2);
     expect((saved.state.sens as { cm360: number }).cm360).toBe(42);
     expect(saved.state).not.toHaveProperty('view');
     expect(saved.state).not.toHaveProperty('lastResult');

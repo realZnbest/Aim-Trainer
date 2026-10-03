@@ -18,6 +18,9 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { ArenaEnvironment } from './ArenaEnvironment';
+import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
+import { targetBaseColor, targetContrastScale } from '../arenaThemes';
 import {
   InputManager,
   Simulation,
@@ -541,6 +544,7 @@ export function GameScreen(): ReactElement {
   const video = useApp((s) => s.video);
   const crosshair = useApp((s) => s.crosshair);
   const hitSound = useApp((s) => s.hitSound);
+  const colorblind = useApp((s) => s.colorblind);
   const masterVolume = useApp((s) => s.masterVolume);
   const hitVolume = useApp((s) => s.hitVolume);
   const setResult = useApp((s) => s.setResult);
@@ -956,6 +960,11 @@ export function GameScreen(): ReactElement {
   }, [runId]);
 
   const crossSize = crosshair.length + crosshair.gap;
+  const targetColor = useMemo(() => {
+    const c = new THREE.Color(targetBaseColor(colorblind));
+    c.multiplyScalar(targetContrastScale(video.contrast));
+    return `#${c.getHexString()}`;
+  }, [colorblind, video.contrast]);
 
   return (
     <div ref={wrapRef} className="relative h-full w-full select-none overflow-hidden bg-abyss">
@@ -968,22 +977,32 @@ export function GameScreen(): ReactElement {
           canvas.setAttribute('aria-label', 'Aim training arena');
         }}
       >
-        <color attach="background" args={['#0b1426']} />
-        <ambientLight intensity={1.15} />
-        <directionalLight position={[5, 8, 2]} intensity={1.1} />
         {/* Enclosed training hall: sized from the scenario's spawn volume so the
             target lane is never occluded and nothing floats. */}
-        <ArenaEnvironment scenario={scenario} />
+        <ArenaEnvironment
+          scenario={scenario}
+          mapTheme={video.mapTheme}
+          brightness={video.brightness}
+        />
         <CameraRig run={run} />
         <BurstField run={run} />
         <WeaponModel run={run} visible={!paused} />
-        {/* Targets stay range-blue (#3772A4) — decoupled from crosshair color
-            so the sight (white) always reads against the target. */}
+        {/* Targets stay range-blue by default — decoupled from crosshair color so the
+            sight (white) always reads against the target. Colorblind palettes and the
+            contrast setting only retint them. */}
         <TargetField
           run={run}
           maxTargets={Math.min(64, scenario.targetCount * 2 + 8)}
-          color="#3772A4"
+          color={targetColor}
         />
+        {video.bloom && (
+          // Only genuinely bright emissives (lamps, edge strips, muzzle flash) pass the
+          // threshold; targets and the dark lane stay untouched.
+          <EffectComposer multisampling={video.antialias ? 4 : 0}>
+            <Bloom mipmapBlur intensity={0.65} luminanceThreshold={0.5} luminanceSmoothing={0.2} />
+            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          </EffectComposer>
+        )}
       </Canvas>
 
       {/* Crosshair overlay (DOM — cheap, no canvas redraw) */}

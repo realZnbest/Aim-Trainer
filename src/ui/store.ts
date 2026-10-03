@@ -9,6 +9,8 @@ import type { Scenario } from '@/scenarios/schema';
 import { BUILT_IN_SCENARIOS } from '@/scenarios/builtins';
 import type { SessionRecord } from '@/persistence/db';
 
+import type { MapTheme } from './arenaThemes';
+
 export type View = 'menu' | 'game' | 'results' | 'dashboard' | 'settings' | 'sandbox';
 
 export interface CrosshairSettings {
@@ -37,6 +39,7 @@ export interface VideoSettings {
   fpsCap: number;
   antialias: boolean;
   bloom: boolean;
+  mapTheme: MapTheme;
   contrast: number;
   brightness: number;
 }
@@ -114,7 +117,8 @@ export const useApp = create<AppState>()(
         resolutionScale: 1,
         fpsCap: 240,
         antialias: true,
-        bloom: false,
+        bloom: true,
+        mapTheme: 'night',
         contrast: 1.15,
         brightness: 1,
       },
@@ -147,7 +151,13 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'aim-trainer-settings',
-      version: 1,
+      version: 2,
+      // v1 stored bloom=false as an inert placeholder; real bloom ships on by default now.
+      migrate: (persisted, version) => {
+        const p = persisted as { video?: Record<string, unknown> };
+        if (version < 2 && p.video) p.video = { ...p.video, bloom: true, mapTheme: 'night' };
+        return p;
+      },
       // Settings only — view/run/result state is session-local.
       partialize: (s) => ({
         consent: s.consent,

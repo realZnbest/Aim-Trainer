@@ -21,20 +21,101 @@
  *
  * @module ui/components/ArenaEnvironment
  */
-import { useMemo, type ReactElement } from 'react';
+import { useEffect, useMemo, type ReactElement } from 'react';
+import * as THREE from 'three';
+import { Environment, Lightformer } from '@react-three/drei';
 import type { Scenario } from '@/scenarios/schema';
+import { ARENA_THEMES, type ArenaTheme, type MapTheme } from '../arenaThemes';
 
 /** Movement clamp from engine/simulation (linear / sine / strafe-ai). */
 const MOVE_X = 9;
 const MOVE_Y = 6;
 
-const FOG_COLOR = '#0b1426';
-const EDGE_BLUE = '#4c8dff';
-const LAMP_WHITE = '#cfe0ff';
 /** Warm / cool accents live only off the target lane (sides, ceiling, behind). */
 const TEAL = '#14b8a6';
 const OLIVE = '#5a6148';
 const RUST = '#7a4a2b';
+const PANEL_M = 4; // meters per wall/floor panel tile
+
+/**
+ * Procedural panel texture (no asset downloads — offline-first). Soft vertical
+ * falloff, hairline seams and a little speckle so flat boxes read as material.
+ */
+function makePanelCanvas(base: string, seam: string): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  g.fillStyle = base;
+  g.fillRect(0, 0, size, size);
+  const shade = g.createLinearGradient(0, 0, 0, size);
+  shade.addColorStop(0, 'rgba(255,255,255,0.05)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.12)');
+  g.fillStyle = shade;
+  g.fillRect(0, 0, size, size);
+  // deterministic speckle (fixed LCG, never Math.random)
+  let seed = 7;
+  for (let i = 0; i < 900; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const x = seed % size;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const y = seed % size;
+    g.fillStyle = seed & 1 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)';
+    g.fillRect(x, y, 2, 2);
+  }
+  g.strokeStyle = seam;
+  g.lineWidth = 4;
+  g.strokeRect(0, 0, size, size);
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(size / 2, 0);
+  g.lineTo(size / 2, size);
+  g.stroke();
+  return c;
+}
+
+interface Surfaces {
+  floorMap: THREE.Texture | null;
+  sideMap: THREE.Texture | null;
+  endMap: THREE.Texture | null;
+}
+
+function useSurfaces(
+  theme: ArenaTheme,
+  d: { wallW: number; wallH: number; wallD: number },
+): Surfaces {
+  const surfaces = useMemo<Surfaces>(() => {
+    const floorCanvas = makePanelCanvas(theme.floor, theme.floorSeam);
+    const wallCanvas = makePanelCanvas(theme.wall, theme.wallSeam);
+    if (!floorCanvas || !wallCanvas) return { floorMap: null, sideMap: null, endMap: null };
+    const make = (canvas: HTMLCanvasElement, rx: number, ry: number): THREE.Texture => {
+      const t = new THREE.CanvasTexture(canvas);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      t.repeat.set(Math.max(1, rx), Math.max(1, ry));
+      return t;
+    };
+    return {
+      floorMap: make(floorCanvas, (d.wallW + 14) / PANEL_M, (d.wallD + 14) / PANEL_M),
+      sideMap: make(wallCanvas, d.wallD / PANEL_M, d.wallH / PANEL_M),
+      endMap: make(wallCanvas, d.wallW / PANEL_M, d.wallH / PANEL_M),
+    };
+  }, [theme, d.wallW, d.wallH, d.wallD]);
+  useEffect(
+    () => () => {
+      surfaces.floorMap?.dispose();
+      surfaces.sideMap?.dispose();
+      surfaces.endMap?.dispose();
+    },
+    [surfaces],
+  );
+  return surfaces;
+}
 
 export interface ArenaDims {
   effX: number;
@@ -111,8 +192,18 @@ function zSlots(backZ: number, frontZ: number, step: number, inset: number, cap:
   return out;
 }
 
-export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactElement {
+export function ArenaEnvironment({
+  scenario,
+  mapTheme = 'night',
+  brightness = 1,
+}: {
+  scenario: Scenario;
+  mapTheme?: MapTheme;
+  brightness?: number;
+}): ReactElement {
   const d = useMemo(() => computeDims(scenario), [scenario]);
+  const theme = ARENA_THEMES[mapTheme];
+  const { floorMap, sideMap, endMap } = useSurfaces(theme, d);
   const layout = useMemo(() => {
     const pillarZs = zSlots(d.backZ, d.frontZ, 10, 5, 14);
     const beamZs = zSlots(d.backZ, d.frontZ, 10, 6, 12);
@@ -136,64 +227,118 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
 
   return (
     <group>
-      <fog attach="fog" args={[FOG_COLOR, d.maxD + 14, d.maxD + 170]} />
-      <hemisphereLight args={['#3a5a94', '#0a0f1e', 0.55]} />
+      <color attach="background" args={[theme.fog]} />
+      <fog attach="fog" args={[theme.fog, d.maxD + 14, d.maxD + 170]} />
+      <ambientLight intensity={theme.ambient * brightness} />
+      <directionalLight position={[5, 8, 2]} intensity={1.1 * brightness} />
+      <hemisphereLight args={[theme.hemiSky, theme.hemiGround, 0.55 * brightness]} />
+      {/* Procedural, one-shot environment map: reflections on metal + the weapon
+          without any network fetch. Lightformers sit off the target lane. */}
+      <Environment resolution={64} frames={1} environmentIntensity={0.55 * brightness}>
+        <Lightformer
+          form="rect"
+          intensity={3}
+          color={theme.envLight}
+          position={[0, 9, -6]}
+          rotation-x={Math.PI / 2}
+          scale={[24, 3, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={2}
+          color={theme.envAccent}
+          position={[-14, 2, -4]}
+          rotation-y={Math.PI / 2}
+          scale={[18, 2, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={2}
+          color={theme.envAccent}
+          position={[14, 2, -4]}
+          rotation-y={-Math.PI / 2}
+          scale={[18, 2, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={1.2}
+          color={theme.envLight}
+          position={[0, 3, 8]}
+          scale={[16, 5, 1]}
+        />
+      </Environment>
 
       {/* ---------- floor: bare slab + survey grid (crates are the sole floor props) ---------- */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY, d.centerZ]}>
         <planeGeometry args={[d.wallW + 14, d.wallD + 14]} />
-        <meshStandardMaterial color="#0c152b" roughness={0.95} metalness={0.05} />
+        <meshStandardMaterial
+          color={floorMap ? '#ffffff' : theme.floor}
+          map={floorMap}
+          roughness={0.5}
+          metalness={0.3}
+          envMapIntensity={0.9}
+        />
       </mesh>
       <gridHelper
-        args={[layout.gridSize, layout.gridDiv, '#20355f', '#141f3a']}
+        args={[layout.gridSize, layout.gridDiv, theme.gridMajor, theme.gridMinor]}
         position={[0, d.floorY + 0.02, d.centerZ]}
       />
 
       {/* ---------- front (target) wall: intentionally bare — zero distraction behind targets ---------- */}
       <mesh position={[0, layout.midY, d.frontZ]}>
         <boxGeometry args={[d.wallW, d.wallH, 0.8]} />
-        <meshStandardMaterial color="#101c38" roughness={0.9} metalness={0.1} />
+        <meshStandardMaterial color={theme.front} roughness={0.9} metalness={0.1} />
       </mesh>
 
       {/* ---------- side walls + mounted dressing ---------- */}
       <mesh position={[-sx, layout.midY, d.centerZ]}>
         <boxGeometry args={[0.8, d.wallH, d.wallD]} />
-        <meshStandardMaterial color="#0e1932" roughness={0.9} metalness={0.1} />
+        <meshStandardMaterial
+          color={sideMap ? '#ffffff' : theme.wall}
+          map={sideMap}
+          roughness={0.85}
+          metalness={0.12}
+        />
       </mesh>
       <mesh position={[sx, layout.midY, d.centerZ]}>
         <boxGeometry args={[0.8, d.wallH, d.wallD]} />
-        <meshStandardMaterial color="#0e1932" roughness={0.9} metalness={0.1} />
+        <meshStandardMaterial
+          color={sideMap ? '#ffffff' : theme.wall}
+          map={sideMap}
+          roughness={0.85}
+          metalness={0.12}
+        />
       </mesh>
       {/* base glow strips run along the wall bases */}
       <mesh position={[wallInnerL + 0.05, d.floorY + 0.65, d.centerZ]}>
         <boxGeometry args={[0.1, 0.16, d.wallD - 6]} />
-        <meshBasicMaterial color="#1f4b9e" toneMapped={false} />
+        <meshBasicMaterial color={theme.strip} toneMapped={false} />
       </mesh>
       <mesh position={[wallInnerR - 0.05, d.floorY + 0.65, d.centerZ]}>
         <boxGeometry args={[0.1, 0.16, d.wallD - 6]} />
-        <meshBasicMaterial color="#1f4b9e" toneMapped={false} />
+        <meshBasicMaterial color={theme.strip} toneMapped={false} />
       </mesh>
       {/* a single amber accent stripe per side wall */}
       <mesh position={[wallInnerL + 0.05, 5.6, d.centerZ]}>
         <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
-        <meshBasicMaterial color="#FF4655" toneMapped={false} />
+        <meshBasicMaterial color={theme.accent} toneMapped={false} />
       </mesh>
       <mesh position={[wallInnerR - 0.05, 5.6, d.centerZ]}>
         <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
-        <meshBasicMaterial color="#FF4655" toneMapped={false} />
+        <meshBasicMaterial color={theme.accent} toneMapped={false} />
       </mesh>
       {/* ventilation ducts hugging the upper walls + straps tying them to the ceiling */}
       {[-1, 1].map((side, si) => (
         <mesh key={300 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, d.centerZ]}>
           <boxGeometry args={[1.0, 1.0, ductLen]} />
-          <meshStandardMaterial color="#1a2c52" roughness={0.55} metalness={0.5} />
+          <meshStandardMaterial color={theme.metal} roughness={0.55} metalness={0.5} />
         </mesh>
       ))}
       {layout.strapZs.flatMap((z, zi) =>
         [-1, 1].map((side, si) => (
           <mesh key={3000 + zi * 2 + si} position={[side * (sx - 0.9), d.ceilY - 0.55, z]}>
             <boxGeometry args={[0.18, 1.1, 0.5]} />
-            <meshStandardMaterial color="#0f1c38" roughness={0.6} metalness={0.5} />
+            <meshStandardMaterial color={theme.metalDark} roughness={0.6} metalness={0.5} />
           </mesh>
         )),
       )}
@@ -202,7 +347,7 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
         [-1, 1].map((side, si) => (
           <mesh key={8000 + zi * 2 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, z]}>
             <boxGeometry args={[1.06, 1.06, 0.24]} />
-            <meshBasicMaterial color="#FF4655" toneMapped={false} />
+            <meshBasicMaterial color={theme.accent} toneMapped={false} />
           </mesh>
         )),
       )}
@@ -213,20 +358,20 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
           <group key={4000 + zi * 2 + si}>
             <mesh position={[side * (sx - 1.7), layout.midY, z]}>
               <boxGeometry args={[1.2, d.wallH, 1.2]} />
-              <meshStandardMaterial color="#14234a" roughness={0.8} metalness={0.15} />
+              <meshStandardMaterial color={theme.pillar} roughness={0.8} metalness={0.15} />
             </mesh>
             <mesh position={[side * (sx - 2.36), layout.midY, z]}>
               <boxGeometry args={[0.12, d.wallH - 3, 0.12]} />
-              <meshBasicMaterial color={EDGE_BLUE} toneMapped={false} />
+              <meshBasicMaterial color={theme.edge} toneMapped={false} />
             </mesh>
             {/* signal-red collar below the ceiling + grounded plinth */}
             <mesh position={[side * (sx - 1.7), d.ceilY - 0.7, z]}>
               <boxGeometry args={[1.34, 0.2, 1.34]} />
-              <meshBasicMaterial color="#FF4655" toneMapped={false} />
+              <meshBasicMaterial color={theme.accent} toneMapped={false} />
             </mesh>
             <mesh position={[side * (sx - 1.7), d.floorY + 0.25, z]}>
               <boxGeometry args={[1.5, 0.5, 1.5]} />
-              <meshStandardMaterial color="#0f1c38" roughness={0.7} metalness={0.3} />
+              <meshStandardMaterial color={theme.metalDark} roughness={0.7} metalness={0.3} />
             </mesh>
           </group>
         )),
@@ -235,23 +380,23 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
       {/* ---------- ceiling: slab + wall-to-wall beams + mounted lamp panels ---------- */}
       <mesh position={[0, d.ceilY + 0.4, d.centerZ]}>
         <boxGeometry args={[d.wallW, 0.8, d.wallD]} />
-        <meshStandardMaterial color="#0d1730" roughness={0.95} metalness={0.05} />
+        <meshStandardMaterial color={theme.ceiling} roughness={0.95} metalness={0.05} />
       </mesh>
       {layout.beamZs.map((z, bi) => (
         <group key={5000 + bi}>
           <mesh position={[0, d.ceilY - 0.35, z]}>
             <boxGeometry args={[beamLen, 0.7, 1.0]} />
-            <meshStandardMaterial color="#16264a" roughness={0.8} metalness={0.2} />
+            <meshStandardMaterial color={theme.beam} roughness={0.8} metalness={0.2} />
           </mesh>
           {layout.fixtureXs.map((x, fi) => (
             <group key={6000 + bi * 8 + fi}>
               <mesh position={[x, d.ceilY - 0.77, z]}>
                 <boxGeometry args={[3.4, 0.14, 1.6]} />
-                <meshStandardMaterial color="#0a1428" roughness={0.6} metalness={0.4} />
+                <meshStandardMaterial color={theme.metalDark} roughness={0.6} metalness={0.4} />
               </mesh>
               <mesh position={[x, d.ceilY - 0.89, z]}>
                 <boxGeometry args={[3.0, 0.1, 1.3]} />
-                <meshBasicMaterial color={LAMP_WHITE} toneMapped={false} />
+                <meshBasicMaterial color={theme.lamp} toneMapped={false} />
               </mesh>
             </group>
           ))}
@@ -261,7 +406,12 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
       {/* ---------- back wall (behind the player): door + exit sign ---------- */}
       <mesh position={[0, layout.midY, d.backZ]}>
         <boxGeometry args={[d.wallW, d.wallH, 0.8]} />
-        <meshStandardMaterial color="#0e1932" roughness={0.9} metalness={0.1} />
+        <meshStandardMaterial
+          color={endMap ? '#ffffff' : theme.wall}
+          map={endMap}
+          roughness={0.85}
+          metalness={0.12}
+        />
       </mesh>
       <mesh position={[0, d.floorY + 2.2, d.backZ - 0.49]}>
         <boxGeometry args={[2.6, 4.4, 0.18]} />
@@ -269,15 +419,15 @@ export function ArenaEnvironment({ scenario }: { scenario: Scenario }): ReactEle
       </mesh>
       <mesh position={[-1.42, d.floorY + 2.3, d.backZ - 0.49]}>
         <boxGeometry args={[0.25, 4.6, 0.25]} />
-        <meshStandardMaterial color="#1a2c52" roughness={0.6} metalness={0.4} />
+        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
       </mesh>
       <mesh position={[1.42, d.floorY + 2.3, d.backZ - 0.49]}>
         <boxGeometry args={[0.25, 4.6, 0.25]} />
-        <meshStandardMaterial color="#1a2c52" roughness={0.6} metalness={0.4} />
+        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
       </mesh>
       <mesh position={[0, d.floorY + 4.72, d.backZ - 0.49]}>
         <boxGeometry args={[3.1, 0.3, 0.25]} />
-        <meshStandardMaterial color="#1a2c52" roughness={0.6} metalness={0.4} />
+        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
       </mesh>
       <mesh position={[0, d.floorY + 5.15, d.backZ - 0.46]}>
         <boxGeometry args={[1.3, 0.3, 0.12]} />

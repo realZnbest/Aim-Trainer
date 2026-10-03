@@ -52,6 +52,11 @@ const resources = {
       time: 'TIME',
       shots: 'SHOTS',
       streak: 'STREAK',
+      set_bloom: 'Bloom glow',
+      set_map: 'Map',
+      map_night: 'Night range',
+      map_neon: 'Neon',
+      map_concrete: 'Concrete',
       'insight_accuracy-low_title': 'Accuracy below 75%',
       'insight_accuracy-low_detail':
         'Hit rate {{v}}%. Slow down and confirm crosshair placement before clicking — try Microshot.',
@@ -234,6 +239,11 @@ const resources = {
       time: 'เวลา',
       shots: 'ยิง',
       streak: 'ต่อเนื่อง',
+      set_bloom: 'เอฟเฟกต์เรืองแสง Bloom',
+      set_map: 'แมพ',
+      map_night: 'สนามกลางคืน',
+      map_neon: 'นีออน',
+      map_concrete: 'คอนกรีต',
       'insight_accuracy-low_title': 'ความแม่นยำต่ำกว่า 75%',
       'insight_accuracy-low_detail':
         'อัตราโดน {{v}}% ชะลอและตรวจตำแหน่งครอสแฮร์ก่อนคลิก — ลอง Microshot',
