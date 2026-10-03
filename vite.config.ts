@@ -31,7 +31,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   server: {
@@ -50,8 +50,10 @@ export default defineConfig({
     modulePreload: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei', 'three-mesh-bvh'],
+        // Rolldown (Vite 8) only accepts the function form.
+        manualChunks(id: string) {
+          if (/node_modules\/(three|@react-three|three-mesh-bvh)\//.test(id)) return 'three';
+          return undefined;
         },
       },
     },
