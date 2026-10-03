@@ -23,7 +23,12 @@ const EXTREMES: Scenario[] = [
     targetSizeMax: 2,
   }),
   custom({
-    spawnArea: { volume: 'box', halfExtents: { x: 20, y: 15, z: 0.5 }, minDistance: 2, maxDistance: 120 },
+    spawnArea: {
+      volume: 'box',
+      halfExtents: { x: 20, y: 15, z: 0.5 },
+      minDistance: 2,
+      maxDistance: 120,
+    },
   }),
   custom({
     spawnArea: { volume: 'sphere', radius: 20, minDistance: 2, maxDistance: 60 },
