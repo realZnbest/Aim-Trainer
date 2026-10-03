@@ -18,7 +18,6 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
