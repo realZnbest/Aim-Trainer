@@ -72,8 +72,8 @@ export const scenarioSchema = z.object({
   maxSpeed: z.number().min(0).max(60).default(0),
   health: z.number().int().min(1).max(1000).default(1),
   headshotMultiplier: z.number().min(0.5).max(10).default(1),
-  weapon: weaponProfileSchema.default({}),
-  scoringWeights: scoringWeightsSchema.default({}),
+  weapon: weaponProfileSchema.prefault({}),
+  scoringWeights: scoringWeightsSchema.prefault({}),
   difficultyScaling: z
     .object({
       enabled: z.boolean().default(false),
@@ -81,7 +81,7 @@ export const scenarioSchema = z.object({
       sizeFactor: z.number().default(0.95),
       speedFactor: z.number().default(1.05),
     })
-    .default({}),
+    .prefault({}),
   gridCols: z.number().int().min(1).max(8).optional(),
   gridRows: z.number().int().min(1).max(8).optional(),
 });
