@@ -6,7 +6,7 @@
   "description": "Production-grade web Aim Trainer (Aim Lab / Kovaak's class) — low-latency input, deterministic simulation, deep analytics.",
   "packageManager": "pnpm@9.7.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "scripts": {
     "dev": "vite",
