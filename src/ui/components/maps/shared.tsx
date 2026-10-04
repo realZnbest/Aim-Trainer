@@ -11,18 +11,39 @@ import type { ArenaTheme } from '../../arenaThemes';
 
 export const PANEL_M = 4; // meters per wall/floor panel tile
 
+export interface PanelCanvases {
+  color: HTMLCanvasElement;
+  normal: HTMLCanvasElement;
+  rough: HTMLCanvasElement;
+}
+
 /**
- * Procedural panel texture (no asset downloads — offline-first). Soft vertical
- * falloff, hairline seams and a little speckle so flat boxes read as material.
+ * Procedural PBR panel set (no asset downloads — offline-first), generated once per theme:
+ * colour (gradient, speckle, wear blotches, scratches, rivets, seams), a height field turned
+ * into a tangent-space normal map, and a roughness map. Fixed LCG, so output is stable.
  */
-export function makePanelCanvas(base: string, seam: string): HTMLCanvasElement | null {
+export function makePanelCanvases(base: string, seam: string): PanelCanvases | null {
   if (typeof document === 'undefined') return null;
   const size = 256;
-  const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
-  const g = c.getContext('2d');
-  if (!g) return null;
+  const mk = (): [HTMLCanvasElement, CanvasRenderingContext2D] | null => {
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    return g ? [c, g] : null;
+  };
+  const col = mk();
+  const hgt = mk();
+  const rgh = mk();
+  const nrm = mk();
+  if (!col || !hgt || !rgh || !nrm) return null;
+  const [colC, g] = col;
+  const h = hgt[1];
+  const [rC, r] = rgh;
+  const [nC, n] = nrm;
+  const rnd = lcg(7);
+
+  // --- colour
   g.fillStyle = base;
   g.fillRect(0, 0, size, size);
   const shade = g.createLinearGradient(0, 0, 0, size);
@@ -30,15 +51,31 @@ export function makePanelCanvas(base: string, seam: string): HTMLCanvasElement |
   shade.addColorStop(1, 'rgba(0,0,0,0.12)');
   g.fillStyle = shade;
   g.fillRect(0, 0, size, size);
-  // deterministic speckle (fixed LCG, never Math.random)
-  let seed = 7;
+  for (let i = 0; i < 6; i++) {
+    // wear / stain blotches
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const rad = 24 + rnd() * 50;
+    const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+    grad.addColorStop(0, rnd() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.10)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
   for (let i = 0; i < 900; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    const x = seed % size;
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    const y = seed % size;
-    g.fillStyle = seed & 1 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)';
-    g.fillRect(x, y, 2, 2);
+    g.fillStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)';
+    g.fillRect(rnd() * size, rnd() * size, 2, 2);
+  }
+  g.lineWidth = 1;
+  for (let i = 0; i < 14; i++) {
+    // fine scratches
+    g.strokeStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.12)';
+    const x = rnd() * size;
+    const y = rnd() * size;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (rnd() - 0.5) * 40, y + (rnd() - 0.5) * 12);
+    g.stroke();
   }
   g.strokeStyle = seam;
   g.lineWidth = 4;
@@ -48,43 +85,158 @@ export function makePanelCanvas(base: string, seam: string): HTMLCanvasElement |
   g.moveTo(size / 2, 0);
   g.lineTo(size / 2, size);
   g.stroke();
-  return c;
+  for (const [x, y] of [
+    [10, 10],
+    [size - 10, 10],
+    [10, size - 10],
+    [size - 10, size - 10],
+  ] as [number, number][]) {
+    g.fillStyle = 'rgba(0,0,0,0.28)'; // rivet shadow
+    g.beginPath();
+    g.arc(x + 0.8, y + 0.8, 3, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.16)';
+    g.beginPath();
+    g.arc(x, y, 2.4, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // --- height field: noise + grooves + bevel + rivet bumps
+  h.fillStyle = '#808080';
+  h.fillRect(0, 0, size, size);
+  for (let i = 0; i < 2200; i++) {
+    const v = 100 + Math.floor(rnd() * 56);
+    h.fillStyle = `rgb(${String(v)},${String(v)},${String(v)})`;
+    h.fillRect(rnd() * size, rnd() * size, 2, 2);
+  }
+  h.strokeStyle = '#303030';
+  h.lineWidth = 5;
+  h.strokeRect(0, 0, size, size);
+  h.lineWidth = 2;
+  h.beginPath();
+  h.moveTo(size / 2, 0);
+  h.lineTo(size / 2, size);
+  h.stroke();
+  for (const [x, y] of [
+    [10, 10],
+    [size - 10, 10],
+    [10, size - 10],
+    [size - 10, size - 10],
+  ] as [number, number][]) {
+    h.fillStyle = '#e0e0e0';
+    h.beginPath();
+    h.arc(x, y, 3, 0, Math.PI * 2);
+    h.fill();
+  }
+  const hd = h.getImageData(0, 0, size, size).data;
+  const out = n.createImageData(size, size);
+  const at = (x: number, y: number): number =>
+    hd[(((y + size) % size) * size + ((x + size) % size)) * 4] ?? 128;
+  const strength = 2.2;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) / 255;
+      const dy = (at(x, y + 1) - at(x, y - 1)) / 255;
+      const inv = 1 / Math.sqrt(dx * dx * strength * strength + dy * dy * strength * strength + 1);
+      const i = (y * size + x) * 4;
+      out.data[i] = Math.round((-dx * strength * inv * 0.5 + 0.5) * 255);
+      out.data[i + 1] = Math.round((dy * strength * inv * 0.5 + 0.5) * 255);
+      out.data[i + 2] = Math.round((inv * 0.5 + 0.5) * 255);
+      out.data[i + 3] = 255;
+    }
+  }
+  n.putImageData(out, 0, 0);
+
+  // --- roughness (G channel): mostly mid, scuffed patches glossier, seams rougher
+  r.fillStyle = 'rgb(150,150,150)';
+  r.fillRect(0, 0, size, size);
+  for (let i = 0; i < 700; i++) {
+    const v = 120 + Math.floor(rnd() * 90);
+    r.fillStyle = `rgb(${String(v)},${String(v)},${String(v)})`;
+    r.fillRect(rnd() * size, rnd() * size, 3, 3);
+  }
+  r.strokeStyle = 'rgb(220,220,220)';
+  r.lineWidth = 4;
+  r.strokeRect(0, 0, size, size);
+
+  return { color: colC, normal: nC, rough: rC };
+}
+
+export interface SurfaceMaps {
+  map: THREE.Texture;
+  normalMap: THREE.Texture;
+  roughnessMap: THREE.Texture;
 }
 
 export interface Surfaces {
-  floorMap: THREE.Texture | null;
-  sideMap: THREE.Texture | null;
-  endMap: THREE.Texture | null;
+  floor: SurfaceMaps | null;
+  side: SurfaceMaps | null;
+  end: SurfaceMaps | null;
 }
+
+const NORMAL_SCALE = new THREE.Vector2(0.55, 0.55);
+
+/** Material props for a surface set (white base so the texture carries the colour). */
+export function surfaceProps(
+  m: SurfaceMaps | null,
+  fallbackColor: string,
+  roughness = 1,
+): {
+  color: string;
+  map?: THREE.Texture;
+  normalMap?: THREE.Texture;
+  normalScale?: THREE.Vector2;
+  roughnessMap?: THREE.Texture;
+  roughness: number;
+} {
+  if (!m) return { color: fallbackColor, roughness: 0.8 };
+  return {
+    color: '#ffffff',
+    map: m.map,
+    normalMap: m.normalMap,
+    normalScale: NORMAL_SCALE,
+    roughnessMap: m.roughnessMap,
+    roughness,
+  };
+}
+
+const NO_SURFACES: Surfaces = { floor: null, side: null, end: null };
 
 export function useSurfaces(
   theme: ArenaTheme,
   d: { wallW: number; wallH: number; wallD: number },
 ): Surfaces {
   const surfaces = useMemo<Surfaces>(() => {
-    const floorCanvas = makePanelCanvas(theme.floor, theme.floorSeam);
-    const wallCanvas = makePanelCanvas(theme.wall, theme.wallSeam);
-    if (!floorCanvas || !wallCanvas) return { floorMap: null, sideMap: null, endMap: null };
-    const make = (canvas: HTMLCanvasElement, rx: number, ry: number): THREE.Texture => {
-      const t = new THREE.CanvasTexture(canvas);
-      t.colorSpace = THREE.SRGBColorSpace;
+    const floorSet = makePanelCanvases(theme.floor, theme.floorSeam);
+    const wallSet = makePanelCanvases(theme.wall, theme.wallSeam);
+    if (!floorSet || !wallSet) return NO_SURFACES;
+    const tex = (c: HTMLCanvasElement, srgb: boolean, rx: number, ry: number): THREE.Texture => {
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
       t.wrapS = THREE.RepeatWrapping;
       t.wrapT = THREE.RepeatWrapping;
       t.anisotropy = 8;
       t.repeat.set(Math.max(1, rx), Math.max(1, ry));
       return t;
     };
+    const set = (c: PanelCanvases, rx: number, ry: number): SurfaceMaps => ({
+      map: tex(c.color, true, rx, ry),
+      normalMap: tex(c.normal, false, rx, ry),
+      roughnessMap: tex(c.rough, false, rx, ry),
+    });
     return {
-      floorMap: make(floorCanvas, (d.wallW + 14) / PANEL_M, (d.wallD + 14) / PANEL_M),
-      sideMap: make(wallCanvas, d.wallD / PANEL_M, d.wallH / PANEL_M),
-      endMap: make(wallCanvas, d.wallW / PANEL_M, d.wallH / PANEL_M),
+      floor: set(floorSet, (d.wallW + 14) / PANEL_M, (d.wallD + 14) / PANEL_M),
+      side: set(wallSet, d.wallD / PANEL_M, d.wallH / PANEL_M),
+      end: set(wallSet, d.wallW / PANEL_M, d.wallH / PANEL_M),
     };
   }, [theme, d.wallW, d.wallH, d.wallD]);
   useEffect(
     () => () => {
-      surfaces.floorMap?.dispose();
-      surfaces.sideMap?.dispose();
-      surfaces.endMap?.dispose();
+      for (const m of [surfaces.floor, surfaces.side, surfaces.end]) {
+        m?.map.dispose();
+        m?.normalMap.dispose();
+        m?.roughnessMap.dispose();
+      }
     },
     [surfaces],
   );
@@ -121,6 +273,8 @@ export interface InstanceItem {
   /** Optional per-instance tint (multiplies the material color/map). */
   c?: string;
   ry?: number;
+  /** Full XYZ rotation (radians); wins over `ry`. */
+  r?: [number, number, number];
 }
 
 export type InstanceShape = 'box' | 'cylinder' | 'pyramid' | 'cone';
@@ -147,7 +301,8 @@ export function Instances({
     items.forEach((it, i) => {
       o.position.set(...it.p);
       o.scale.set(...it.s);
-      o.rotation.set(0, it.ry ?? 0, 0);
+      if (it.r) o.rotation.set(...it.r);
+      else o.rotation.set(0, it.ry ?? 0, 0);
       o.updateMatrix();
       mesh.setMatrixAt(i, o.matrix);
       if (it.c) mesh.setColorAt(i, col.set(it.c));

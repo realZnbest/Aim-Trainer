@@ -12,7 +12,15 @@ const CONTAINER_COLORS = ['#8a3b2b', '#2f5d7c', '#c08a2e', '#4a6b45', '#6b6f78',
  * wet reflective concrete and lamp light shafts. Every prop stays at |x| >= effX + 3
  * (sides only); the front wall behind the targets is bare dark steel.
  */
-export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): ReactElement {
+export function HangarMap({
+  d,
+  theme,
+  reflections,
+}: {
+  d: ArenaDims;
+  theme: ArenaTheme;
+  reflections: boolean;
+}): ReactElement {
   const sx = d.sideX;
   const springY = d.floorY + d.wallH * 0.5;
   const ry = d.ceilY - springY;
@@ -68,8 +76,82 @@ export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): Re
         dashes.push({ p: [side * (d.effX + 2.4), d.floorY + 0.03, z], s: [0.3, 0.02, 2.6] });
       }
     }
-    return { archZs, lampZs, ribs, posts, legs, containers, dashes };
-  }, [d, sx, bodyMidY, bodyH, deckY]);
+    // longitudinal purlins along the vault, wall pipe runs, skylight panels
+    const purlins: InstanceItem[] = [];
+    const rx = sx - 0.45;
+    const ryy = ry - 0.2;
+    for (const deg of [25, 50, 75, 105, 130, 155]) {
+      const a = (deg * Math.PI) / 180;
+      purlins.push({
+        p: [Math.cos(a) * rx, springY + Math.sin(a) * ryy, d.centerZ],
+        s: [0.11, d.wallD - 4, 0.11],
+        r: [Math.PI / 2, 0, 0],
+      });
+    }
+    const pipes: InstanceItem[] = [];
+    for (const side of [-1, 1]) {
+      pipes.push({
+        p: [side * (sx - 0.62), d.floorY + 3.4, d.centerZ],
+        s: [0.18, d.wallD - 6, 0.18],
+        r: [Math.PI / 2, 0, 0],
+      });
+      pipes.push({
+        p: [side * (sx - 0.62), d.floorY + 3.9, d.centerZ],
+        s: [0.11, d.wallD - 6, 0.11],
+        r: [Math.PI / 2, 0, 0],
+      });
+    }
+    const skylights: InstanceItem[] = [];
+    const skyX = 5.5;
+    const skyY = springY + Math.sqrt(Math.max(0, 1 - (skyX / rx) ** 2)) * ryy - 0.12;
+    for (let i = 0; i < archZs.length - 1; i++) {
+      const z = ((archZs[i] ?? 0) + (archZs[i + 1] ?? 0)) / 2;
+      for (const side of [-1, 1]) {
+        skylights.push({ p: [side * skyX, skyY, z], s: [2.2, 0.1, 5], r: [0, 0, -side * 0.5] });
+      }
+    }
+    const signs: InstanceItem[] = [];
+    for (let z = d.frontZ + 14; z < d.backZ - 8; z += 26) {
+      for (const side of [-1, 1]) {
+        signs.push({ p: [side * (sx - 0.4), d.floorY + 9.6, z], s: [0.08, 1.3, 2.6] });
+      }
+    }
+    const arrows: InstanceItem[] = [];
+    for (let z = d.backZ - 8; z > d.frontZ + 8; z -= 9) {
+      for (const side of [-1, 1]) {
+        arrows.push({ p: [side * (d.effX + 3.3), d.floorY + 0.034, z], s: [1.4, 0.004, 2.2] });
+      }
+    }
+    const rndo = lcg(41);
+    const stains: InstanceItem[] = [];
+    for (let i = 0; i < 9; i++) {
+      const side = rndo() > 0.5 ? 1 : -1;
+      stains.push({
+        p: [
+          side * (d.effX + 1 + rndo() * 6),
+          d.floorY + 0.036,
+          d.frontZ + 6 + rndo() * (d.wallD - 16),
+        ],
+        s: [2 + rndo() * 3, 0.004, 1.6 + rndo() * 2.6],
+        ry: rndo() * Math.PI,
+      });
+    }
+    return {
+      archZs,
+      lampZs,
+      ribs,
+      posts,
+      legs,
+      containers,
+      dashes,
+      purlins,
+      pipes,
+      skylights,
+      signs,
+      arrows,
+      stains,
+    };
+  }, [d, sx, bodyMidY, bodyH, deckY, ry, springY]);
 
   const archGeom = useMemo(() => {
     const pts: THREE.Vector3[] = [];
@@ -113,6 +195,60 @@ export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): Re
     [wallLen / 6, 1],
   );
 
+  const poolTex = useCanvasTexture('light-pool', 128, 128, (g, w, h) => {
+    const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.45, 'rgba(255,255,255,0.28)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  });
+  const arrowTex = useCanvasTexture('floor-arrow', 128, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#f2b01e';
+    g.globalAlpha = 0.8;
+    for (const y of [60, 140]) {
+      g.beginPath();
+      g.moveTo(w / 2, y - 40);
+      g.lineTo(w - 14, y + 20);
+      g.lineTo(w - 42, y + 20);
+      g.lineTo(w / 2, y - 8);
+      g.lineTo(42, y + 20);
+      g.lineTo(14, y + 20);
+      g.closePath();
+      g.fill();
+    }
+  });
+  const stainTex = useCanvasTexture('oil-stain', 128, 128, (g, w, h) => {
+    const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    grad.addColorStop(0, 'rgba(0,0,0,0.8)');
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.35)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  });
+  const signTex = useCanvasTexture('hangar-sign', 256, 112, (g, w, h) => {
+    g.fillStyle = '#f2b01e';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#15171c';
+    g.fillRect(8, 8, w - 16, h - 16);
+    g.fillStyle = '#f2b01e';
+    g.font = '700 54px "Chakra Petch", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('BAY 03', w / 2, h / 2 + 3);
+  });
+  // Light shafts fade out toward the floor instead of ending in a hard cone edge.
+  const shaftFade = useCanvasTexture('shaft-fade', 4, 128, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.55, '#555555');
+    grad.addColorStop(1, '#000000');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  });
   const wallW = d.wallW;
   const lampY = d.ceilY - 1.8;
 
@@ -121,19 +257,23 @@ export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): Re
       {/* ---------- wet concrete: planar reflection, dimmed + blurred ---------- */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY, d.centerZ]}>
         <planeGeometry args={[wallW + 14, d.wallD + 14]} />
-        <MeshReflectorMaterial
-          color="#0d0f14"
-          blur={[260, 80]}
-          resolution={512}
-          mixBlur={1}
-          mixStrength={22}
-          roughness={0.85}
-          metalness={0.5}
-          depthScale={0.8}
-          minDepthThreshold={0.4}
-          maxDepthThreshold={1.4}
-          mirror={0.55}
-        />
+        {reflections ? (
+          <MeshReflectorMaterial
+            color="#0d0f14"
+            blur={[260, 80]}
+            resolution={256}
+            mixBlur={1}
+            mixStrength={22}
+            roughness={0.85}
+            metalness={0.5}
+            depthScale={0.8}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.4}
+            mirror={0.55}
+          />
+        ) : (
+          <meshStandardMaterial color="#10131a" roughness={0.55} metalness={0.5} />
+        )}
       </mesh>
       <Instances items={layout.dashes}>
         <meshBasicMaterial color={theme.accent} toneMapped={false} />
@@ -195,6 +335,28 @@ export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): Re
         <boxGeometry args={[0.35, 0.35, d.wallD - 1]} />
         <meshStandardMaterial color={theme.metal} roughness={0.5} metalness={0.7} />
       </mesh>
+
+      {/* ---------- vault detail: purlins, skylights, wall pipes, signage ---------- */}
+      <Instances shape="cylinder" items={layout.purlins}>
+        <meshStandardMaterial color={theme.metal} roughness={0.4} metalness={0.8} />
+      </Instances>
+      <Instances items={layout.skylights}>
+        <meshBasicMaterial color="#7fa6e8" toneMapped={false} />
+      </Instances>
+      <Instances shape="cylinder" items={layout.pipes}>
+        <meshStandardMaterial color={theme.metal} roughness={0.35} metalness={0.85} />
+      </Instances>
+      <Instances items={layout.signs}>
+        <meshBasicMaterial map={signTex} toneMapped={false} />
+      </Instances>
+
+      {/* ---------- floor decals: lane arrows + oil stains ---------- */}
+      <Instances items={layout.arrows}>
+        <meshBasicMaterial map={arrowTex} transparent depthWrite={false} toneMapped={false} />
+      </Instances>
+      <Instances items={layout.stains}>
+        <meshBasicMaterial map={stainTex} transparent depthWrite={false} />
+      </Instances>
 
       {/* ---------- gantry catwalks (sides only, above the containers) ---------- */}
       {[-1, 1].map((side) => (
@@ -259,24 +421,33 @@ export function HangarMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): Re
         <meshBasicMaterial
           color={theme.lamp}
           transparent
-          opacity={0.032}
+          alphaMap={shaftFade}
+          opacity={0.1}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           toneMapped={false}
         />
       </Instances>
-      {[-1, 1].flatMap((side) =>
-        [0.25, 0.7].map((t) => (
-          <pointLight
-            key={`${String(side)}-${String(t)}`}
-            position={[side * (sx - 6), springY - 1, d.backZ - t * d.wallD]}
-            color={theme.lamp}
-            intensity={90}
-            distance={46}
-            decay={2}
-          />
-        )),
-      )}
+      {/* Baked-look light pools under the side lamps (additive decals; no real-time lights). */}
+      <Instances
+        items={[-(sx - 6), sx - 6].flatMap((x) =>
+          layout.lampZs.map((z): InstanceItem => ({
+            p: [x, d.floorY + 0.05, z],
+            s: [9, 0.01, 9],
+            r: [0, 0, 0],
+          })),
+        )}
+      >
+        <meshBasicMaterial
+          map={poolTex}
+          color={theme.lamp}
+          transparent
+          opacity={0.45}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </Instances>
 
       {/* ---------- hangar door behind the player ---------- */}
       <mesh position={[0, d.floorY + 6, d.backZ - 0.5]}>

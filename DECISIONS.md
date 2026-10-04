@@ -113,3 +113,18 @@ existed in settings but did nothing — they are now wired (brightness scales al
 contrast retints targets, default 1.15 = authored look; colorblind swaps to
 Okabe–Ito-derived target colors). Persisted settings are v3 (v1: bloom on; v2 palette
 names -> `range`).
+
+## D-18: Render-cost policy (measure, then spend)
+
+Measured on a software rasteriser (relative, but fill-rate dominated like a weak iGPU):
+bloom ≈ 20% of a frame, planar floor reflection ≈ 25–30%, the composer itself (vignette +
+ACES) and MSAA level ≈ negligible. Hence: bloom and reflections are the two optional
+costs, both user toggles, and `QualityGuard` drops reflections then bloom if the median
+frame time over ~120 frames (after a 2.5 s warm-up) is below ~45 fps (session-only, shown
+in the HUD; Settings → Auto quality).
+Other rules: no real-time point lights (each adds per-fragment cost to every standard
+material) — light pools are additive decals, the muzzle flash is a mesh; repeated props are
+single-draw `Instances`; the pistol OBJ is baked to one mesh per shared material (5 draws);
+canvas MSAA is off when the composer owns anti-aliasing; PBR surface sets (colour + normal +
+roughness) are generated once per map from a fixed LCG. `e2e/perf-budget.spec.ts` guards
+draw calls / triangles / textures / geometries per map via the dev-only `window.__aimGl`.

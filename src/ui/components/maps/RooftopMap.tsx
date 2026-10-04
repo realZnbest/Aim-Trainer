@@ -2,7 +2,14 @@ import { useMemo, type ReactElement } from 'react';
 import type { ArenaTheme } from '../../arenaThemes';
 import type { ArenaDims } from './dims';
 import { SkyDome } from './Sky';
-import { Instances, lcg, useCanvasTexture, useSurfaces, type InstanceItem } from './shared';
+import {
+  Instances,
+  lcg,
+  surfaceProps,
+  useCanvasTexture,
+  useSurfaces,
+  type InstanceItem,
+} from './shared';
 
 const SUN_DIR: [number, number, number] = [-0.82, 0.07, -0.57];
 
@@ -12,7 +19,7 @@ const SUN_DIR: [number, number, number] = [-0.82, 0.07, -0.57];
  * behind the lane, so targets always read against smooth sky.
  */
 export function RooftopMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): ReactElement {
-  const { floorMap, sideMap, endMap } = useSurfaces(theme, d);
+  const surfaces = useSurfaces(theme, d);
   const sx = d.sideX;
   const parapetH = 1.4;
   const parapetY = d.floorY + parapetH / 2;
@@ -93,7 +100,27 @@ export function RooftopMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): R
         fans.push({ p: [x, d.floorY + 1.85, z], s: [0.9, 0.12, 0.9] });
       }
     }
-    return { city, bulbs, ac, fans };
+    // aviation warning lights on the tall towers (bloom catches them)
+    const beacons: InstanceItem[] = city
+      .filter((b) => b.p[1] + b.s[1] / 2 > 0)
+      .map((b) => ({ p: [b.p[0], b.p[1] + b.s[1] / 2 + 0.8, b.p[2]], s: [1.4, 1.4, 1.4] }));
+    // coping slab capping the parapets + roof vents
+    const coping: InstanceItem[] = [
+      ...[-1, 1].map((side): InstanceItem => ({
+        p: [side * sx, d.floorY + parapetH + 0.1, d.centerZ],
+        s: [1.2, 0.22, d.wallD + 0.4],
+      })),
+      { p: [0, d.floorY + parapetH + 0.1, d.frontZ], s: [d.wallW, 0.22, 1.2] },
+      { p: [0, d.floorY + parapetH + 0.1, d.backZ], s: [d.wallW, 0.22, 1.2] },
+    ];
+    const vents: InstanceItem[] = [];
+    const r3 = lcg(31);
+    for (let z = d.backZ - 8; z > d.frontZ + 8; z -= 11 + r3() * 8) {
+      const side = r3() > 0.5 ? 1 : -1;
+      vents.push({ p: [side * (sx - 2.4), d.floorY + 0.5, z], s: [0.8, 1.0, 0.8], c: '#4a4d5b' });
+      vents.push({ p: [side * (sx - 2.4), d.floorY + 1.15, z], s: [1.2, 0.18, 1.2], c: '#3b3e4b' });
+    }
+    return { city, bulbs, ac, fans, beacons, coping, vents };
   }, [d, sx]);
 
   return (
@@ -106,7 +133,13 @@ export function RooftopMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): R
         sunDir={SUN_DIR}
         stars={0.8}
         haze={0.34}
+        clouds={0.85}
       />
+      {/* far ground so tower bases never float; swallowed by fog */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -131, 0]}>
+        <planeGeometry args={[2400, 2400]} />
+        <meshBasicMaterial color="#0c0818" />
+      </mesh>
       <directionalLight position={[-82, 7, -57]} color={theme.sun} intensity={1.5} />
 
       {/* ---------- city skyline (single draw call, fogged into the dusk haze) ---------- */}
@@ -117,32 +150,17 @@ export function RooftopMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): R
       {/* ---------- deck + parapets ---------- */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY, d.centerZ]}>
         <planeGeometry args={[d.wallW + 14, d.wallD + 14]} />
-        <meshStandardMaterial
-          color={floorMap ? '#ffffff' : theme.floor}
-          map={floorMap}
-          roughness={0.9}
-          metalness={0.05}
-        />
+        <meshStandardMaterial {...surfaceProps(surfaces.floor, theme.floor, 1)} metalness={0.05} />
       </mesh>
       {[-1, 1].map((side) => (
         <mesh key={side} position={[side * sx, parapetY, d.centerZ]}>
           <boxGeometry args={[0.9, parapetH, d.wallD]} />
-          <meshStandardMaterial
-            color={sideMap ? '#ffffff' : theme.wall}
-            map={sideMap}
-            roughness={0.9}
-            metalness={0.05}
-          />
+          <meshStandardMaterial {...surfaceProps(surfaces.side, theme.wall, 1)} metalness={0.05} />
         </mesh>
       ))}
       <mesh position={[0, parapetY, d.frontZ]}>
         <boxGeometry args={[d.wallW, parapetH, 0.9]} />
-        <meshStandardMaterial
-          color={endMap ? '#ffffff' : theme.wall}
-          map={endMap}
-          roughness={0.9}
-          metalness={0.05}
-        />
+        <meshStandardMaterial {...surfaceProps(surfaces.end, theme.wall, 1)} metalness={0.05} />
       </mesh>
       <mesh position={[0, parapetY, d.backZ]}>
         <boxGeometry args={[d.wallW, parapetH, 0.9]} />
@@ -150,6 +168,16 @@ export function RooftopMap({ d, theme }: { d: ArenaDims; theme: ArenaTheme }): R
       </mesh>
       <Instances items={scenery.bulbs}>
         <meshBasicMaterial color={theme.lamp} toneMapped={false} />
+      </Instances>
+
+      <Instances items={scenery.coping}>
+        <meshStandardMaterial color={theme.metal} roughness={0.7} metalness={0.3} />
+      </Instances>
+      <Instances items={scenery.beacons}>
+        <meshBasicMaterial color={theme.accent} toneMapped={false} />
+      </Instances>
+      <Instances items={scenery.vents}>
+        <meshStandardMaterial color="#ffffff" roughness={0.7} metalness={0.3} />
       </Instances>
 
       {/* ---------- machinery (sides + behind only) ---------- */}

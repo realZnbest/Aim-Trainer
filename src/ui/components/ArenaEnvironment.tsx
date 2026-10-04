@@ -39,10 +39,12 @@ export function ArenaEnvironment({
   scenario,
   mapTheme = 'range',
   brightness = 1,
+  reflections = true,
 }: {
   scenario: Scenario;
   mapTheme?: MapTheme;
   brightness?: number;
+  reflections?: boolean;
 }): ReactElement {
   const d = useMemo(() => computeDims(scenario), [scenario]);
   const theme = ARENA_THEMES[mapTheme];
@@ -92,9 +94,9 @@ export function ArenaEnvironment({
       </Environment>
 
       {mapTheme === 'range' && <RangeMap d={d} theme={theme} />}
-      {mapTheme === 'hangar' && <HangarMap d={d} theme={theme} />}
+      {mapTheme === 'hangar' && <HangarMap d={d} theme={theme} reflections={reflections} />}
       {mapTheme === 'rooftop' && <RooftopMap d={d} theme={theme} />}
-      {mapTheme === 'void' && <VoidMap d={d} theme={theme} />}
+      {mapTheme === 'void' && <VoidMap d={d} theme={theme} reflections={reflections} />}
     </group>
   );
 }

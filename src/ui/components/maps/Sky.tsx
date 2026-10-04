@@ -18,11 +18,33 @@ uniform vec3 uSunDir;
 uniform float uStars;
 uniform float uDisc;
 uniform float uHaze;
+uniform float uClouds;
 
 float hash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
   p *= 17.0;
   return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float hash2(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), f.x),
+             mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 3; i++) {
+    v += a * vnoise(p);
+    p *= 2.03;
+    a *= 0.5;
+  }
+  return v;
 }
 
 void main() {
@@ -34,6 +56,15 @@ void main() {
   col = mix(col, uHorizon * 0.35, smoothstep(0.0, -0.25, h));
 
   float s = max(dot(d, normalize(uSunDir)), 0.0);
+  if (uClouds > 0.0 && h > 0.02) {
+    // Flat cloud deck projected overhead: dark undersides, sun-lit rims toward the sun.
+    vec2 cp = d.xz / (h + 0.18) * 1.7;
+    float c = smoothstep(0.48, 0.82, fbm(cp));
+    float lit = pow(s, 3.0);
+    vec3 cloud = mix(uMid * 0.9, uSun, lit * 0.9);
+    float band = smoothstep(0.02, 0.22, h) * (1.0 - smoothstep(0.55, 0.95, h));
+    col = mix(col, cloud, c * uClouds * band);
+  }
   float glow = pow(s, 10.0) * 0.4 + pow(s, 90.0) * 0.8;
   float disc = smoothstep(0.9975, 0.9979, s);
   if (uDisc > 0.5) {
@@ -62,6 +93,7 @@ export function SkyDome({
   stars = 0,
   disc = false,
   haze = 0.35,
+  clouds = 0,
 }: {
   top: string;
   mid: string;
@@ -71,6 +103,7 @@ export function SkyDome({
   stars?: number;
   disc?: boolean;
   haze?: number;
+  clouds?: number;
 }): ReactElement {
   const uniforms = useMemo(
     () => ({
@@ -82,8 +115,9 @@ export function SkyDome({
       uStars: { value: stars },
       uDisc: { value: disc ? 1 : 0 },
       uHaze: { value: haze },
+      uClouds: { value: clouds },
     }),
-    [top, mid, horizon, sun, sunDir, stars, disc, haze],
+    [top, mid, horizon, sun, sunDir, stars, disc, haze, clouds],
   );
   return (
     <mesh renderOrder={-10}>

@@ -5,6 +5,8 @@ const PORT = Number(process.env.E2E_PORT ?? 5173);
 const config: PlaywrightTestConfig = {
   testDir: './tests/e2e',
   timeout: 60_000,
+  // The dev server serves the 3D stack as many unbundled modules: the first game load is slow.
+  expect: { timeout: 20_000 },
   use: {
     baseURL: `http://localhost:${String(PORT)}`,
     headless: true,

@@ -39,6 +39,10 @@ export interface VideoSettings {
   fpsCap: number;
   antialias: boolean;
   bloom: boolean;
+  /** Planar floor reflections (hangar, synthwave). */
+  reflections: boolean;
+  /** Drop reflections, then bloom, if the first seconds run below ~45 fps. */
+  autoQuality: boolean;
   mapTheme: MapTheme;
   contrast: number;
   brightness: number;
@@ -118,6 +122,8 @@ export const useApp = create<AppState>()(
         fpsCap: 240,
         antialias: true,
         bloom: true,
+        reflections: true,
+        autoQuality: true,
         mapTheme: 'range',
         contrast: 1.15,
         brightness: 1,
@@ -151,7 +157,7 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'aim-trainer-settings',
-      version: 3,
+      version: 4,
       // v1 stored bloom=false as an inert placeholder; v2 'night/neon/concrete' were
       // palette swaps of one room and are replaced by distinct maps in v3.
       migrate: (persisted, version) => {
@@ -159,6 +165,7 @@ export const useApp = create<AppState>()(
         if (p.video) {
           if (version < 2) p.video = { ...p.video, bloom: true };
           if (version < 3) p.video = { ...p.video, mapTheme: 'range' };
+          if (version < 4) p.video = { ...p.video, reflections: true, autoQuality: true };
         }
         return p;
       },

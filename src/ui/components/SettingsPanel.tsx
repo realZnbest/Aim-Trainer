@@ -348,6 +348,20 @@ export function SettingsPanel(): ReactElement {
               <MapPicker />
             </div>
 
+            <Row label={t('set_reflections')}>
+              <Check
+                aria="reflections"
+                checked={video.reflections}
+                onChange={(v) => patchVideo({ reflections: v })}
+              />
+            </Row>
+            <Row label={t('set_auto_quality')}>
+              <Check
+                aria="auto quality"
+                checked={video.autoQuality}
+                onChange={(v) => patchVideo({ autoQuality: v })}
+              />
+            </Row>
             <Row label={t('set_target_contrast')}>
               <Num
                 aria="contrast"

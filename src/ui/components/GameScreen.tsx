@@ -12,13 +12,13 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { ArenaEnvironment } from './ArenaEnvironment';
-import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import { targetBaseColor, targetContrastScale } from '../arenaThemes';
 import {
@@ -181,6 +181,28 @@ function TargetField({
   );
 }
 
+/**
+ * Auto quality: after a warm-up (shader compile, texture upload) take the median frame time over
+ * ~120 frames; if it is below ~45 fps, ask for one step down (reflections, then bloom).
+ * Median, not mean, so a tab-switch hitch never triggers it.
+ */
+function QualityGuard({ enabled, onDegrade }: { enabled: boolean; onDegrade: () => void }): null {
+  const clock = useRef(0);
+  const samples = useRef<number[]>([]);
+  useFrame((_, dt) => {
+    if (!enabled) return;
+    clock.current += dt;
+    if (clock.current < 2.5) return;
+    samples.current.push(dt);
+    if (samples.current.length < 120) return;
+    const sorted = [...samples.current].sort((a, b) => a - b);
+    samples.current = [];
+    clock.current = 0;
+    if ((sorted[60] ?? 0) > 1 / 45) onDegrade();
+  });
+  return null;
+}
+
 function BurstField({ run }: { run: React.RefObject<RunRefs | null> }): ReactElement {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -233,56 +255,81 @@ function WeaponModel({
   const group = useRef<THREE.Group>(null);
   const model = useRef<THREE.Group>(null);
   const muzzleFlash = useRef<THREE.Group>(null);
-  const muzzleLight = useRef<THREE.PointLight>(null);
   const targetPosition = useMemo(() => new THREE.Vector3(), []);
   const targetQuaternion = useMemo(() => new THREE.Quaternion(), []);
   const localOffset = useMemo(() => new THREE.Vector3(), []);
   const rawWeapon = useLoader(OBJLoader, '/models/usp45.obj');
+  // Five shared materials; every OBJ sub-mesh is baked into one merged mesh per material
+  // (the pistol is ~5 draw calls instead of one per OBJ part, and no per-part materials).
   const weaponAsset = useMemo(() => {
-    const asset = rawWeapon.clone(true);
-    asset.traverse((child) => {
+    const mats = {
+      trigger: new THREE.MeshStandardMaterial({
+        color: '#ff4655',
+        metalness: 0.3,
+        roughness: 0.38,
+      }),
+      barrel: new THREE.MeshStandardMaterial({ color: '#182640', metalness: 0.92, roughness: 0.2 }),
+      slide: new THREE.MeshStandardMaterial({
+        color: '#3b527c',
+        emissive: '#0b1730',
+        emissiveIntensity: 0.5,
+        metalness: 0.78,
+        roughness: 0.28,
+      }),
+      frame: new THREE.MeshStandardMaterial({
+        color: '#253a60',
+        emissive: '#081326',
+        emissiveIntensity: 0.55,
+        metalness: 0.5,
+        roughness: 0.5,
+      }),
+      body: new THREE.MeshStandardMaterial({
+        color: '#1b2d4e',
+        emissive: '#071227',
+        emissiveIntensity: 0.65,
+        metalness: 0.42,
+        roughness: 0.68,
+      }),
+    };
+    type Slot = keyof typeof mats;
+    const buckets: Record<Slot, THREE.BufferGeometry[]> = {
+      trigger: [],
+      barrel: [],
+      slide: [],
+      frame: [],
+      body: [],
+    };
+    const root = rawWeapon.clone(true);
+    root.updateMatrixWorld(true);
+    root.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
       const name = child.name.toLowerCase();
-      const material = name.includes('trigger')
-        ? new THREE.MeshStandardMaterial({
-            color: '#ff4655',
-            metalness: 0.3,
-            roughness: 0.38,
-          })
+      const slot: Slot = name.includes('trigger')
+        ? 'trigger'
         : name.includes('barrel')
-          ? new THREE.MeshStandardMaterial({
-              color: '#182640',
-              metalness: 0.92,
-              roughness: 0.2,
-            })
+          ? 'barrel'
           : name.includes('slider')
-            ? new THREE.MeshStandardMaterial({
-                color: '#3b527c',
-                emissive: '#0b1730',
-                emissiveIntensity: 0.5,
-                metalness: 0.78,
-                roughness: 0.28,
-              })
+            ? 'slide'
             : name.includes('frame')
-              ? new THREE.MeshStandardMaterial({
-                  color: '#253a60',
-                  emissive: '#081326',
-                  emissiveIntensity: 0.55,
-                  metalness: 0.5,
-                  roughness: 0.5,
-                })
-              : new THREE.MeshStandardMaterial({
-                  color: '#1b2d4e',
-                  emissive: '#071227',
-                  emissiveIntensity: 0.65,
-                  metalness: 0.42,
-                  roughness: 0.68,
-                });
-      child.material = material;
-      child.castShadow = true;
-      child.receiveShadow = true;
+              ? 'frame'
+              : 'body';
+      const geo = (child.geometry as THREE.BufferGeometry).clone();
+      geo.applyMatrix4(child.matrixWorld);
+      // Same attribute set across parts or the merge fails.
+      for (const key of Object.keys(geo.attributes)) {
+        if (key !== 'position' && key !== 'normal') geo.deleteAttribute(key);
+      }
+      if (!geo.attributes.normal) geo.computeVertexNormals();
+      buckets[slot].push(geo.index ? geo.toNonIndexed() : geo);
     });
-    return asset;
+    const out = new THREE.Group();
+    for (const slot of Object.keys(buckets) as Slot[]) {
+      const parts = buckets[slot];
+      if (parts.length === 0) continue;
+      const merged = mergeGeometries(parts, false) as THREE.BufferGeometry | null; // null on attribute mismatch
+      if (merged) out.add(new THREE.Mesh(merged, mats[slot]));
+    }
+    return out;
   }, [rawWeapon]);
 
   useFrame((_, delta) => {
@@ -307,228 +354,18 @@ function WeaponModel({
       muzzleFlash.current.position.y = 0.26 + flashStrength * 0.012;
       muzzleFlash.current.position.z = -0.41 + flashStrength * 0.018;
     }
-    if (muzzleLight.current) muzzleLight.current.intensity = flashStrength * 3.8;
   });
 
   return (
     <group ref={group} visible={visible}>
-      <pointLight position={[-0.3, 0.35, 0.45]} intensity={0.7} distance={4} color="#b7c7e6" />
       <group ref={model} rotation={[0.08, -Math.PI / 2 - 0.04, 0.02]} scale={0.08}>
         <primitive object={weaponAsset} />
       </group>
       {/* OBJ barrel tip: source x=-4.9, source y≈2.4 → scene y≈0.26, z≈-0.41. */}
       <group ref={muzzleFlash} position={[0, 0.26, -0.41]} visible={false}>
-        <pointLight ref={muzzleLight} color="#ff9a78" intensity={0} distance={1.15} decay={2} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[0.58, 1, 0.58]}>
           <coneGeometry args={[0.05, 0.22, 6]} />
           <meshBasicMaterial color="#ff8a6a" toneMapped={false} transparent opacity={0.86} />
-        </mesh>
-      </group>
-      <group visible={false}>
-        {/* Beveled slide: dark steel shell, raised top plane, and serrations. */}
-        <RoundedBox
-          args={[0.42, 0.15, 0.64]}
-          radius={0.035}
-          smoothness={2}
-          castShadow
-          position={[0, 0.055, -0.12]}
-        >
-          <meshStandardMaterial
-            color="#2d4268"
-            emissive="#0a1428"
-            emissiveIntensity={0.7}
-            metalness={0.78}
-            roughness={0.3}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.34, 0.055, 0.38]}
-          radius={0.018}
-          smoothness={2}
-          castShadow
-          position={[0, 0.145, -0.03]}
-        >
-          <meshStandardMaterial
-            color="#3b527c"
-            emissive="#0b1730"
-            emissiveIntensity={0.65}
-            metalness={0.72}
-            roughness={0.27}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.25, 0.1, 0.23]}
-          radius={0.02}
-          smoothness={2}
-          castShadow
-          position={[0, 0.055, -0.5]}
-        >
-          <meshStandardMaterial color="#253a60" metalness={0.86} roughness={0.23} />
-        </RoundedBox>
-        <mesh position={[0.218, 0.055, -0.2]}>
-          <boxGeometry args={[0.012, 0.065, 0.23]} />
-          <meshStandardMaterial color="#0e1628" metalness={0.35} roughness={0.64} />
-        </mesh>
-        {[-0.25, -0.2, -0.15, -0.1, -0.05].map((z) => (
-          <mesh key={z} position={[0.224, 0.068, z]} rotation={[0, 0.12, 0]}>
-            <boxGeometry args={[0.014, 0.07, 0.022]} />
-            <meshStandardMaterial color="#6ea8ff" metalness={0.45} roughness={0.42} />
-          </mesh>
-        ))}
-
-        {/* Barrel, crown, and bore. */}
-        <mesh castShadow position={[0, 0.055, -0.64]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.072, 0.072, 0.16, 12]} />
-          <meshStandardMaterial color="#070c17" metalness={0.95} roughness={0.18} />
-        </mesh>
-        <mesh castShadow position={[0, 0.055, -0.735]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.087, 0.087, 0.035, 12]} />
-          <meshStandardMaterial color="#182640" metalness={0.9} roughness={0.2} />
-        </mesh>
-        <mesh position={[0, 0.055, -0.758]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.048, 0.048, 0.008, 12]} />
-          <meshBasicMaterial color="#04070e" />
-        </mesh>
-
-        {/* Frame, dust cover, rail teeth, and trigger. */}
-        <RoundedBox
-          args={[0.45, 0.14, 0.45]}
-          radius={0.04}
-          smoothness={2}
-          castShadow
-          position={[0, -0.055, 0.12]}
-        >
-          <meshStandardMaterial
-            color="#294064"
-            emissive="#081326"
-            emissiveIntensity={0.65}
-            metalness={0.5}
-            roughness={0.46}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.27, 0.055, 0.27]}
-          radius={0.014}
-          smoothness={2}
-          position={[0, -0.145, -0.08]}
-        >
-          <meshStandardMaterial color="#182640" metalness={0.55} roughness={0.42} />
-        </RoundedBox>
-        {[-0.17, -0.12, -0.07, -0.02].map((z) => (
-          <mesh key={z} position={[0, -0.18, z]}>
-            <boxGeometry args={[0.22, 0.018, 0.022]} />
-            <meshStandardMaterial color="#6ea8ff" metalness={0.4} roughness={0.45} />
-          </mesh>
-        ))}
-        <mesh position={[0, -0.13, -0.02]}>
-          <torusGeometry args={[0.09, 0.017, 8, 16, Math.PI]} />
-          <meshStandardMaterial color="#0e1628" metalness={0.32} roughness={0.6} />
-        </mesh>
-        <RoundedBox
-          args={[0.035, 0.095, 0.025]}
-          radius={0.008}
-          smoothness={2}
-          position={[0, -0.135, -0.045]}
-          rotation={[0.2, 0, 0]}
-        >
-          <meshStandardMaterial color="#ff4655" metalness={0.2} roughness={0.4} />
-        </RoundedBox>
-
-        {/* Grip with separate side panels, grooves, and magwell plate. */}
-        <RoundedBox
-          args={[0.25, 0.5, 0.25]}
-          radius={0.035}
-          smoothness={2}
-          castShadow
-          position={[0, -0.31, 0.27]}
-          rotation={[-0.22, 0, 0]}
-        >
-          <meshStandardMaterial
-            color="#1b2d4e"
-            emissive="#071227"
-            emissiveIntensity={0.8}
-            metalness={0.4}
-            roughness={0.7}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.018, 0.34, 0.19]}
-          radius={0.008}
-          smoothness={2}
-          position={[0.134, -0.3, 0.27]}
-          rotation={[-0.22, 0, 0]}
-        >
-          <meshStandardMaterial color="#2d4268" metalness={0.5} roughness={0.58} />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.018, 0.34, 0.19]}
-          radius={0.008}
-          smoothness={2}
-          position={[-0.134, -0.3, 0.27]}
-          rotation={[-0.22, 0, 0]}
-        >
-          <meshStandardMaterial color="#2d4268" metalness={0.5} roughness={0.58} />
-        </RoundedBox>
-        {[0.18, 0.23, 0.28, 0.33, 0.38].map((y) => (
-          <mesh key={y} position={[0.147, -y, 0.27]} rotation={[-0.22, 0, 0]}>
-            <boxGeometry args={[0.012, 0.018, 0.17]} />
-            <meshStandardMaterial color="#6ea8ff" metalness={0.35} roughness={0.5} />
-          </mesh>
-        ))}
-        <RoundedBox
-          args={[0.26, 0.04, 0.26]}
-          radius={0.012}
-          smoothness={2}
-          position={[0, -0.54, 0.32]}
-          rotation={[-0.22, 0, 0]}
-        >
-          <meshStandardMaterial color="#22304e" metalness={0.62} roughness={0.38} />
-        </RoundedBox>
-
-        {/* Rear sight, front sight, optic housing, and red lens. */}
-        <RoundedBox
-          args={[0.16, 0.07, 0.19]}
-          radius={0.018}
-          smoothness={2}
-          position={[0, 0.18, 0.13]}
-        >
-          <meshStandardMaterial color="#0a1120" metalness={0.65} roughness={0.34} />
-        </RoundedBox>
-        <mesh position={[0, 0.19, 0.03]}>
-          <boxGeometry args={[0.045, 0.018, 0.012]} />
-          <meshBasicMaterial color="#ff4655" toneMapped={false} />
-        </mesh>
-        <mesh position={[-0.075, 0.18, 0.24]}>
-          <boxGeometry args={[0.025, 0.07, 0.045]} />
-          <meshStandardMaterial color="#6ea8ff" metalness={0.45} roughness={0.38} />
-        </mesh>
-        <mesh position={[0.075, 0.18, 0.24]}>
-          <boxGeometry args={[0.025, 0.07, 0.045]} />
-          <meshStandardMaterial color="#6ea8ff" metalness={0.45} roughness={0.38} />
-        </mesh>
-        <mesh position={[0, 0.15, -0.3]}>
-          <boxGeometry args={[0.04, 0.075, 0.08]} />
-          <meshStandardMaterial color="#ff4655" metalness={0.25} roughness={0.38} />
-        </mesh>
-
-        {/* Two visible frame pins give the side profile a finished mechanical read. */}
-        <mesh position={[0.23, -0.04, 0.12]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.018, 0.018, 0.012, 10]} />
-          <meshStandardMaterial color="#6ea8ff" metalness={0.7} roughness={0.28} />
-        </mesh>
-        <mesh position={[0.23, -0.04, 0.24]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.012, 10]} />
-          <meshStandardMaterial color="#6ea8ff" metalness={0.7} roughness={0.28} />
-        </mesh>
-
-        {/* Restrained 3D shot flash. */}
-        <mesh
-          position={[0, 0.055, -0.88]}
-          rotation={[Math.PI / 2, 0, 0]}
-          visible={(run.current?.weapon.recoilPitchRad ?? 0) > 0.004}
-        >
-          <coneGeometry args={[0.08, 0.2, 6]} />
-          <meshBasicMaterial color="#ff4655" toneMapped={false} />
         </mesh>
       </group>
     </group>
@@ -553,6 +390,8 @@ export function GameScreen(): ReactElement {
   const [locked, setLocked] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  // Auto-quality step (session only): 0 full, 1 no reflections, 2 no bloom.
+  const [degrade, setDegrade] = useState(0);
   const [hud, setHud] = useState({
     kills: 0,
     shots: 0,
@@ -969,12 +808,16 @@ export function GameScreen(): ReactElement {
   return (
     <div ref={wrapRef} className="relative h-full w-full select-none overflow-hidden bg-abyss">
       <Canvas
-        gl={{ antialias: video.antialias, powerPreference: 'high-performance' }}
+        // With post-processing on, the composer owns MSAA (multisampling below): enabling it
+        // on the canvas too would pay for anti-aliasing twice.
+        gl={{ antialias: video.antialias && !video.bloom, powerPreference: 'high-performance' }}
         dpr={video.resolutionScale}
         camera={{ fov: video.fov, near: 0.1, far: 600, position: [0, 0, 0] }}
         onCreated={({ gl }) => {
           const canvas = gl.domElement;
           canvas.setAttribute('aria-label', 'Aim training arena');
+          // Dev/test only: lets perf scripts read renderer.info (stripped from production builds).
+          if (import.meta.env.DEV) (window as Window & { __aimGl?: typeof gl }).__aimGl = gl;
         }}
       >
         {/* Enclosed training hall: sized from the scenario's spawn volume so the
@@ -983,6 +826,11 @@ export function GameScreen(): ReactElement {
           scenario={scenario}
           mapTheme={video.mapTheme}
           brightness={video.brightness}
+          reflections={video.reflections && degrade < 1}
+        />
+        <QualityGuard
+          enabled={video.autoQuality && degrade < 2}
+          onDegrade={() => setDegrade((n) => Math.min(2, n + 1))}
         />
         <CameraRig run={run} />
         <BurstField run={run} />
@@ -999,7 +847,17 @@ export function GameScreen(): ReactElement {
           // Only genuinely bright emissives (lamps, edge strips, muzzle flash) pass the
           // threshold; targets and the dark lane stay untouched.
           <EffectComposer multisampling={video.antialias ? 4 : 0}>
-            <Bloom mipmapBlur intensity={0.65} luminanceThreshold={0.5} luminanceSmoothing={0.2} />
+            {degrade < 2 ? (
+              <Bloom
+                mipmapBlur
+                intensity={0.65}
+                luminanceThreshold={0.5}
+                luminanceSmoothing={0.2}
+              />
+            ) : (
+              <></>
+            )}
+            <Vignette offset={0.32} darkness={0.5} />
             <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           </EffectComposer>
         )}
@@ -1065,6 +923,7 @@ export function GameScreen(): ReactElement {
       </div>
       <div className="absolute bottom-4 left-4 font-mono text-[11px] uppercase tracking-wider text-faint">
         {text.title} · {scenario.durationSec}s · {t('escPauses')}
+        {degrade > 0 && <span className="ml-3 text-warn">{t('autoLow')}</span>}
       </div>
 
       {locked && hud.countdown > 0 && (
