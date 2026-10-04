@@ -47,12 +47,12 @@ test.describe('aim trainer e2e', () => {
 
   test('map picker is on the menu and the choice persists', async ({ page }) => {
     await page.goto('/');
-    const neon = page.getByRole('radio', { name: 'map neon' });
+    const neon = page.getByRole('radio', { name: 'map void' });
     await expect(neon).toHaveAttribute('aria-checked', 'false');
     await neon.click();
     await expect(neon).toHaveAttribute('aria-checked', 'true');
     await page.reload();
-    await expect(page.getByRole('radio', { name: 'map neon' })).toHaveAttribute(
+    await expect(page.getByRole('radio', { name: 'map void' })).toHaveAttribute(
       'aria-checked',
       'true',
     );

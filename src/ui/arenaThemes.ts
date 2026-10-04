@@ -4,7 +4,7 @@
  * dark/neutral enough for the range-blue (or colorblind) target to read.
  * @module ui/arenaThemes
  */
-export type MapTheme = 'night' | 'neon' | 'concrete';
+export type MapTheme = 'range' | 'hangar' | 'rooftop' | 'void';
 export type ColorblindMode = 'none' | 'deuteranopia' | 'protanopia' | 'tritanopia';
 
 export interface ArenaTheme {
@@ -34,10 +34,16 @@ export interface ArenaTheme {
   hemiSky: string;
   hemiGround: string;
   ambient: number;
+  /** Sky dome (rooftop / void). */
+  skyTop: string;
+  skyMid: string;
+  skyHorizon: string;
+  sun: string;
+  glow: string;
 }
 
 export const ARENA_THEMES: Record<MapTheme, ArenaTheme> = {
-  night: {
+  range: {
     fog: '#0b1426',
     floor: '#0c152b',
     floorSeam: '#1b2c52',
@@ -60,18 +66,81 @@ export const ARENA_THEMES: Record<MapTheme, ArenaTheme> = {
     hemiSky: '#3a5a94',
     hemiGround: '#0a0f1e',
     ambient: 1.15,
+    skyTop: '#0b1426',
+    skyMid: '#0b1426',
+    skyHorizon: '#0b1426',
+    sun: '#ffffff',
+    glow: '#4c8dff',
   },
-  neon: {
-    fog: '#0d0820',
-    floor: '#0b0716',
-    floorSeam: '#2a1457',
-    gridMajor: '#4a1f9a',
-    gridMinor: '#1f1040',
-    front: '#130a28',
-    wall: '#150b2c',
-    wallSeam: '#2a1457',
-    ceiling: '#0e0820',
-    beam: '#241247',
+  hangar: {
+    fog: '#171a21',
+    floor: '#13161c',
+    floorSeam: '#2b3038',
+    gridMajor: '#2f3540',
+    gridMinor: '#1c2028',
+    front: '#191d24',
+    wall: '#232932',
+    wallSeam: '#323945',
+    ceiling: '#14171c',
+    beam: '#2a303a',
+    metal: '#3a4350',
+    metalDark: '#262c35',
+    pillar: '#2c333d',
+    strip: '#ff8a00',
+    accent: '#ffb020',
+    edge: '#ffd28a',
+    lamp: '#ffe2b0',
+    envLight: '#ffe6c0',
+    envAccent: '#ffb020',
+    hemiSky: '#8795ad',
+    hemiGround: '#14171c',
+    ambient: 1.3,
+    skyTop: '#14171c',
+    skyMid: '#14171c',
+    skyHorizon: '#14171c',
+    sun: '#ffe2b0',
+    glow: '#ffb020',
+  },
+  rooftop: {
+    fog: '#5b3b66',
+    floor: '#2a2c36',
+    floorSeam: '#40434f',
+    gridMajor: '#454856',
+    gridMinor: '#33353f',
+    front: '#2a2c36',
+    wall: '#3b3e4b',
+    wallSeam: '#505361',
+    ceiling: '#2a2c36',
+    beam: '#3b3e4b',
+    metal: '#5a5e6c',
+    metalDark: '#3b3e4b',
+    pillar: '#4a4d5b',
+    strip: '#ffb66b',
+    accent: '#ff5a5f',
+    edge: '#ffd29a',
+    lamp: '#ffd9a0',
+    envLight: '#ffb38a',
+    envAccent: '#7a8cff',
+    hemiSky: '#9a7fb8',
+    hemiGround: '#23252e',
+    ambient: 0.95,
+    skyTop: '#0b1033',
+    skyMid: '#4a2b6b',
+    skyHorizon: '#ff8a4c',
+    sun: '#ffd29a',
+    glow: '#ffb66b',
+  },
+  void: {
+    fog: '#12062a',
+    floor: '#07030f',
+    floorSeam: '#1a0b3a',
+    gridMajor: '#27e0ff',
+    gridMinor: '#7a2cff',
+    front: '#12062a',
+    wall: '#12062a',
+    wallSeam: '#1a0b3a',
+    ceiling: '#07030f',
+    beam: '#1a0b3a',
     metal: '#2a1655',
     metalDark: '#190e30',
     pillar: '#1e1040',
@@ -82,32 +151,13 @@ export const ARENA_THEMES: Record<MapTheme, ArenaTheme> = {
     envLight: '#c9a3ff',
     envAccent: '#27e0ff',
     hemiSky: '#6a3ab0',
-    hemiGround: '#0b0716',
-    ambient: 1.2,
-  },
-  concrete: {
-    fog: '#3d4450',
-    floor: '#2c3138',
-    floorSeam: '#4a515c',
-    gridMajor: '#5b6472',
-    gridMinor: '#3a414b',
-    front: '#363d48',
-    wall: '#444b57',
-    wallSeam: '#586070',
-    ceiling: '#2a2f37',
-    beam: '#383e49',
-    metal: '#5b6270',
-    metalDark: '#454b57',
-    pillar: '#505766',
-    strip: '#e0a24a',
-    accent: '#e0702f',
-    edge: '#ffd28a',
-    lamp: '#fff4dc',
-    envLight: '#fff0d0',
-    envAccent: '#e0a24a',
-    hemiSky: '#8a96ad',
-    hemiGround: '#23272e',
-    ambient: 1.25,
+    hemiGround: '#07030f',
+    ambient: 1.1,
+    skyTop: '#05010f',
+    skyMid: '#1c0a3d',
+    skyHorizon: '#ff2fa0',
+    sun: '#ff7a3d',
+    glow: '#27e0ff',
   },
 };
 

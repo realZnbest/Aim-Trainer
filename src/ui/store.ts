@@ -118,7 +118,7 @@ export const useApp = create<AppState>()(
         fpsCap: 240,
         antialias: true,
         bloom: true,
-        mapTheme: 'night',
+        mapTheme: 'range',
         contrast: 1.15,
         brightness: 1,
       },
@@ -151,11 +151,15 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'aim-trainer-settings',
-      version: 2,
-      // v1 stored bloom=false as an inert placeholder; real bloom ships on by default now.
+      version: 3,
+      // v1 stored bloom=false as an inert placeholder; v2 'night/neon/concrete' were
+      // palette swaps of one room and are replaced by distinct maps in v3.
       migrate: (persisted, version) => {
         const p = persisted as { video?: Record<string, unknown> };
-        if (version < 2 && p.video) p.video = { ...p.video, bloom: true, mapTheme: 'night' };
+        if (p.video) {
+          if (version < 2) p.video = { ...p.video, bloom: true };
+          if (version < 3) p.video = { ...p.video, mapTheme: 'range' };
+        }
         return p;
       },
       // Settings only — view/run/result state is session-local.

@@ -1,200 +1,43 @@
 /**
- * Enclosed training-hall arena for the aim range.
+ * Arena router: shared lighting + one-shot environment map, then one of four maps.
  *
- * Design contract (gameplay first):
- * - The lane from the camera (origin) to every possible target position is
- *   NEVER occluded. All decor lives outside the "clear zone":
- *   |x| <= effX, |y - 0| <= effY + margin, -maxD <= z <= 0, where effX/effY
- *   cover the spawn volume PLUS movement drift (|x| < 9, |y| < 6) PLUS the
- *   biggest target radius. Floor strips are flat (4-5cm) so they can't block.
- * - NOTHING floats: every mesh touches the floor, a wall, the ceiling, or
- *   another grounded mesh (wall-mounted fixtures overlap their host by
- *   construction). No particles, no debris, no floating cubes.
- * - The room is derived from the active scenario (spawn volume + distances),
- *   so the back wall always sits just behind the farthest possible target and
- *   side walls stay outside the widest possible spawn. Works for every
- *   built-in drill and for extreme sandbox configs.
- * - Target readability: the wall directly behind the spawn field is completely
- *   bare (no panels, frames, or light bars) so blue targets keep full contrast
- *   with zero visual noise. All dressing lives on the side walls / ceiling.
- * - Static geometry only (no per-frame updates) to protect frame budget.
+ * Gameplay contract (every map, see `maps/`):
+ * - The lane from the camera to every possible target position is NEVER occluded.
+ *   `computeDims` derives the clear zone from the scenario (spawn volume + movement
+ *   drift + target radius); props live outside it (sides, behind, far away).
+ * - The wall / sky directly behind the targets is bare: no panels, lights or props.
+ * - Static geometry only (instanced where repeated); no per-frame updates besides the
+ *   optional planar floor reflection.
  *
  * @module ui/components/ArenaEnvironment
  */
-import { useEffect, useMemo, type ReactElement } from 'react';
-import * as THREE from 'three';
+import { useMemo, type ReactElement } from 'react';
 import { Environment, Lightformer } from '@react-three/drei';
 import type { Scenario } from '@/scenarios/schema';
-import { ARENA_THEMES, type ArenaTheme, type MapTheme } from '../arenaThemes';
+import { ARENA_THEMES, type MapTheme } from '../arenaThemes';
+import { computeDims, type ArenaDims } from './maps/dims';
+import { RangeMap } from './maps/RangeMap';
+import { HangarMap } from './maps/HangarMap';
+import { RooftopMap } from './maps/RooftopMap';
+import { VoidMap } from './maps/VoidMap';
 
-/** Movement clamp from engine/simulation (linear / sine / strafe-ai). */
-const MOVE_X = 9;
-const MOVE_Y = 6;
+export { computeDims };
+export type { ArenaDims };
 
-/** Warm / cool accents live only off the target lane (sides, ceiling, behind). */
-const TEAL = '#14b8a6';
-const OLIVE = '#5a6148';
-const RUST = '#7a4a2b';
-const PANEL_M = 4; // meters per wall/floor panel tile
-
-/**
- * Procedural panel texture (no asset downloads — offline-first). Soft vertical
- * falloff, hairline seams and a little speckle so flat boxes read as material.
- */
-function makePanelCanvas(base: string, seam: string): HTMLCanvasElement | null {
-  if (typeof document === 'undefined') return null;
-  const size = 256;
-  const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
-  const g = c.getContext('2d');
-  if (!g) return null;
-  g.fillStyle = base;
-  g.fillRect(0, 0, size, size);
-  const shade = g.createLinearGradient(0, 0, 0, size);
-  shade.addColorStop(0, 'rgba(255,255,255,0.05)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.12)');
-  g.fillStyle = shade;
-  g.fillRect(0, 0, size, size);
-  // deterministic speckle (fixed LCG, never Math.random)
-  let seed = 7;
-  for (let i = 0; i < 900; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    const x = seed % size;
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    const y = seed % size;
-    g.fillStyle = seed & 1 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)';
-    g.fillRect(x, y, 2, 2);
+function fogRange(map: MapTheme, maxD: number): [number, number] {
+  switch (map) {
+    case 'rooftop':
+      return [maxD + 30, 480];
+    case 'void':
+      return [maxD + 40, 700];
+    default:
+      return [maxD + 14, maxD + 170];
   }
-  g.strokeStyle = seam;
-  g.lineWidth = 4;
-  g.strokeRect(0, 0, size, size);
-  g.lineWidth = 1;
-  g.beginPath();
-  g.moveTo(size / 2, 0);
-  g.lineTo(size / 2, size);
-  g.stroke();
-  return c;
-}
-
-interface Surfaces {
-  floorMap: THREE.Texture | null;
-  sideMap: THREE.Texture | null;
-  endMap: THREE.Texture | null;
-}
-
-function useSurfaces(
-  theme: ArenaTheme,
-  d: { wallW: number; wallH: number; wallD: number },
-): Surfaces {
-  const surfaces = useMemo<Surfaces>(() => {
-    const floorCanvas = makePanelCanvas(theme.floor, theme.floorSeam);
-    const wallCanvas = makePanelCanvas(theme.wall, theme.wallSeam);
-    if (!floorCanvas || !wallCanvas) return { floorMap: null, sideMap: null, endMap: null };
-    const make = (canvas: HTMLCanvasElement, rx: number, ry: number): THREE.Texture => {
-      const t = new THREE.CanvasTexture(canvas);
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = THREE.RepeatWrapping;
-      t.wrapT = THREE.RepeatWrapping;
-      t.anisotropy = 8;
-      t.repeat.set(Math.max(1, rx), Math.max(1, ry));
-      return t;
-    };
-    return {
-      floorMap: make(floorCanvas, (d.wallW + 14) / PANEL_M, (d.wallD + 14) / PANEL_M),
-      sideMap: make(wallCanvas, d.wallD / PANEL_M, d.wallH / PANEL_M),
-      endMap: make(wallCanvas, d.wallW / PANEL_M, d.wallH / PANEL_M),
-    };
-  }, [theme, d.wallW, d.wallH, d.wallD]);
-  useEffect(
-    () => () => {
-      surfaces.floorMap?.dispose();
-      surfaces.sideMap?.dispose();
-      surfaces.endMap?.dispose();
-    },
-    [surfaces],
-  );
-  return surfaces;
-}
-
-export interface ArenaDims {
-  effX: number;
-  effY: number;
-  minD: number;
-  maxD: number;
-  floorY: number;
-  ceilY: number;
-  sideX: number;
-  frontZ: number;
-  backZ: number;
-  wallW: number;
-  wallH: number;
-  wallD: number;
-  centerZ: number;
-}
-
-export function computeDims(s: Scenario): ArenaDims {
-  const area = s.spawnArea;
-  const minD = Math.min(area.minDistance, area.maxDistance);
-  const maxD = Math.max(area.minDistance, area.maxDistance);
-  const maxR = Math.max(s.targetSize, s.targetSizeMax, 0.3);
-
-  let needX: number;
-  let needY: number;
-  if (area.volume === 'box') {
-    needX = area.halfExtents?.x ?? 6;
-    needY = area.halfExtents?.y ?? 4;
-  } else if (area.volume === 'sphere') {
-    needX = area.radius ?? 5;
-    needY = area.radius ?? 5;
-  } else {
-    const halfRad = ((area.coneHalfAngleDeg ?? 14) * Math.PI) / 180;
-    const r = Math.tan(halfRad) * maxD;
-    needX = r;
-    needY = r;
-  }
-
-  // Clear zone: spawn reach + movement drift + target radius.
-  const effX = Math.max(needX + maxR, MOVE_X + maxR);
-  const effY = Math.max(needY + maxR, MOVE_Y + maxR);
-
-  const floorY = -(effY + 3);
-  const ceilY = effY + 4;
-  const sideX = effX + 9;
-  const frontZ = -(maxD + 9);
-  const backZ = 18;
-  const wallW = sideX * 2 + 16;
-  const wallH = ceilY - floorY;
-  const wallD = backZ - frontZ;
-  return {
-    effX,
-    effY,
-    minD,
-    maxD,
-    floorY,
-    ceilY,
-    sideX,
-    frontZ,
-    backZ,
-    wallW,
-    wallH,
-    wallD,
-    centerZ: (backZ + frontZ) / 2,
-  };
-}
-
-/** Evenly spaced z slots between back and front, capped count for huge rooms. */
-function zSlots(backZ: number, frontZ: number, step: number, inset: number, cap: number): number[] {
-  const out: number[] = [];
-  const s = backZ - frontZ > 150 ? step * 2 : step;
-  for (let z = backZ - inset; z > frontZ + inset && out.length < cap; z -= s)
-    out.push(Math.round(z * 10) / 10);
-  return out;
 }
 
 export function ArenaEnvironment({
   scenario,
-  mapTheme = 'night',
+  mapTheme = 'range',
   brightness = 1,
 }: {
   scenario: Scenario;
@@ -203,32 +46,12 @@ export function ArenaEnvironment({
 }): ReactElement {
   const d = useMemo(() => computeDims(scenario), [scenario]);
   const theme = ARENA_THEMES[mapTheme];
-  const { floorMap, sideMap, endMap } = useSurfaces(theme, d);
-  const layout = useMemo(() => {
-    const pillarZs = zSlots(d.backZ, d.frontZ, 10, 5, 14);
-    const beamZs = zSlots(d.backZ, d.frontZ, 10, 6, 12);
-    const strapZs = zSlots(d.backZ, d.frontZ, 12, 8, 10);
-
-    const midY = (d.floorY + d.ceilY) / 2;
-    const wide = d.sideX > 22;
-    const fixtureXs = wide ? [0, d.sideX - 6, -(d.sideX - 6)] : [0];
-    const gridSize = Math.ceil(Math.max(d.wallW + 14, d.wallD + 14));
-    const cell = gridSize > 160 ? 4 : 2;
-    const gridDiv = Math.max(8, Math.min(120, Math.floor(gridSize / cell)));
-    return { pillarZs, beamZs, strapZs, midY, fixtureXs, gridSize, gridDiv };
-  }, [d]);
-
-  const sx = d.sideX;
-  const wallInnerL = -sx + 0.4;
-  const wallInnerR = sx - 0.4;
-  const ductLen = d.wallD - 8;
-  const beamLen = sx * 2 - 0.6;
-  const crateX = sx - 3.4;
+  const [fogNear, fogFar] = fogRange(mapTheme, d.maxD);
 
   return (
     <group>
       <color attach="background" args={[theme.fog]} />
-      <fog attach="fog" args={[theme.fog, d.maxD + 14, d.maxD + 170]} />
+      <fog attach="fog" args={[theme.fog, fogNear, fogFar]} />
       <ambientLight intensity={theme.ambient * brightness} />
       <directionalLight position={[5, 8, 2]} intensity={1.1 * brightness} />
       <hemisphereLight args={[theme.hemiSky, theme.hemiGround, 0.55 * brightness]} />
@@ -268,190 +91,10 @@ export function ArenaEnvironment({
         />
       </Environment>
 
-      {/* ---------- floor: bare slab + survey grid (crates are the sole floor props) ---------- */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, d.floorY, d.centerZ]}>
-        <planeGeometry args={[d.wallW + 14, d.wallD + 14]} />
-        <meshStandardMaterial
-          color={floorMap ? '#ffffff' : theme.floor}
-          map={floorMap}
-          roughness={0.5}
-          metalness={0.3}
-          envMapIntensity={0.9}
-        />
-      </mesh>
-      <gridHelper
-        args={[layout.gridSize, layout.gridDiv, theme.gridMajor, theme.gridMinor]}
-        position={[0, d.floorY + 0.02, d.centerZ]}
-      />
-
-      {/* ---------- front (target) wall: intentionally bare — zero distraction behind targets ---------- */}
-      <mesh position={[0, layout.midY, d.frontZ]}>
-        <boxGeometry args={[d.wallW, d.wallH, 0.8]} />
-        <meshStandardMaterial color={theme.front} roughness={0.9} metalness={0.1} />
-      </mesh>
-
-      {/* ---------- side walls + mounted dressing ---------- */}
-      <mesh position={[-sx, layout.midY, d.centerZ]}>
-        <boxGeometry args={[0.8, d.wallH, d.wallD]} />
-        <meshStandardMaterial
-          color={sideMap ? '#ffffff' : theme.wall}
-          map={sideMap}
-          roughness={0.85}
-          metalness={0.12}
-        />
-      </mesh>
-      <mesh position={[sx, layout.midY, d.centerZ]}>
-        <boxGeometry args={[0.8, d.wallH, d.wallD]} />
-        <meshStandardMaterial
-          color={sideMap ? '#ffffff' : theme.wall}
-          map={sideMap}
-          roughness={0.85}
-          metalness={0.12}
-        />
-      </mesh>
-      {/* base glow strips run along the wall bases */}
-      <mesh position={[wallInnerL + 0.05, d.floorY + 0.65, d.centerZ]}>
-        <boxGeometry args={[0.1, 0.16, d.wallD - 6]} />
-        <meshBasicMaterial color={theme.strip} toneMapped={false} />
-      </mesh>
-      <mesh position={[wallInnerR - 0.05, d.floorY + 0.65, d.centerZ]}>
-        <boxGeometry args={[0.1, 0.16, d.wallD - 6]} />
-        <meshBasicMaterial color={theme.strip} toneMapped={false} />
-      </mesh>
-      {/* a single amber accent stripe per side wall */}
-      <mesh position={[wallInnerL + 0.05, 5.6, d.centerZ]}>
-        <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
-        <meshBasicMaterial color={theme.accent} toneMapped={false} />
-      </mesh>
-      <mesh position={[wallInnerR - 0.05, 5.6, d.centerZ]}>
-        <boxGeometry args={[0.1, 0.18, d.wallD - 6]} />
-        <meshBasicMaterial color={theme.accent} toneMapped={false} />
-      </mesh>
-      {/* ventilation ducts hugging the upper walls + straps tying them to the ceiling */}
-      {[-1, 1].map((side, si) => (
-        <mesh key={300 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, d.centerZ]}>
-          <boxGeometry args={[1.0, 1.0, ductLen]} />
-          <meshStandardMaterial color={theme.metal} roughness={0.55} metalness={0.5} />
-        </mesh>
-      ))}
-      {layout.strapZs.flatMap((z, zi) =>
-        [-1, 1].map((side, si) => (
-          <mesh key={3000 + zi * 2 + si} position={[side * (sx - 0.9), d.ceilY - 0.55, z]}>
-            <boxGeometry args={[0.18, 1.1, 0.5]} />
-            <meshStandardMaterial color={theme.metalDark} roughness={0.6} metalness={0.5} />
-          </mesh>
-        )),
-      )}
-      {/* amber bands ringing the ducts */}
-      {layout.strapZs.flatMap((z, zi) =>
-        [-1, 1].map((side, si) => (
-          <mesh key={8000 + zi * 2 + si} position={[side * (sx - 0.9), d.ceilY - 1.6, z]}>
-            <boxGeometry args={[1.06, 1.06, 0.24]} />
-            <meshBasicMaterial color={theme.accent} toneMapped={false} />
-          </mesh>
-        )),
-      )}
-
-      {/* ---------- free-standing columns: floor-to-ceiling, outside the lane ---------- */}
-      {layout.pillarZs.flatMap((z, zi) =>
-        [-1, 1].map((side, si) => (
-          <group key={4000 + zi * 2 + si}>
-            <mesh position={[side * (sx - 1.7), layout.midY, z]}>
-              <boxGeometry args={[1.2, d.wallH, 1.2]} />
-              <meshStandardMaterial color={theme.pillar} roughness={0.8} metalness={0.15} />
-            </mesh>
-            <mesh position={[side * (sx - 2.36), layout.midY, z]}>
-              <boxGeometry args={[0.12, d.wallH - 3, 0.12]} />
-              <meshBasicMaterial color={theme.edge} toneMapped={false} />
-            </mesh>
-            {/* signal-red collar below the ceiling + grounded plinth */}
-            <mesh position={[side * (sx - 1.7), d.ceilY - 0.7, z]}>
-              <boxGeometry args={[1.34, 0.2, 1.34]} />
-              <meshBasicMaterial color={theme.accent} toneMapped={false} />
-            </mesh>
-            <mesh position={[side * (sx - 1.7), d.floorY + 0.25, z]}>
-              <boxGeometry args={[1.5, 0.5, 1.5]} />
-              <meshStandardMaterial color={theme.metalDark} roughness={0.7} metalness={0.3} />
-            </mesh>
-          </group>
-        )),
-      )}
-
-      {/* ---------- ceiling: slab + wall-to-wall beams + mounted lamp panels ---------- */}
-      <mesh position={[0, d.ceilY + 0.4, d.centerZ]}>
-        <boxGeometry args={[d.wallW, 0.8, d.wallD]} />
-        <meshStandardMaterial color={theme.ceiling} roughness={0.95} metalness={0.05} />
-      </mesh>
-      {layout.beamZs.map((z, bi) => (
-        <group key={5000 + bi}>
-          <mesh position={[0, d.ceilY - 0.35, z]}>
-            <boxGeometry args={[beamLen, 0.7, 1.0]} />
-            <meshStandardMaterial color={theme.beam} roughness={0.8} metalness={0.2} />
-          </mesh>
-          {layout.fixtureXs.map((x, fi) => (
-            <group key={6000 + bi * 8 + fi}>
-              <mesh position={[x, d.ceilY - 0.77, z]}>
-                <boxGeometry args={[3.4, 0.14, 1.6]} />
-                <meshStandardMaterial color={theme.metalDark} roughness={0.6} metalness={0.4} />
-              </mesh>
-              <mesh position={[x, d.ceilY - 0.89, z]}>
-                <boxGeometry args={[3.0, 0.1, 1.3]} />
-                <meshBasicMaterial color={theme.lamp} toneMapped={false} />
-              </mesh>
-            </group>
-          ))}
-        </group>
-      ))}
-
-      {/* ---------- back wall (behind the player): door + exit sign ---------- */}
-      <mesh position={[0, layout.midY, d.backZ]}>
-        <boxGeometry args={[d.wallW, d.wallH, 0.8]} />
-        <meshStandardMaterial
-          color={endMap ? '#ffffff' : theme.wall}
-          map={endMap}
-          roughness={0.85}
-          metalness={0.12}
-        />
-      </mesh>
-      <mesh position={[0, d.floorY + 2.2, d.backZ - 0.49]}>
-        <boxGeometry args={[2.6, 4.4, 0.18]} />
-        <meshStandardMaterial color="#060b18" roughness={0.9} metalness={0.2} />
-      </mesh>
-      <mesh position={[-1.42, d.floorY + 2.3, d.backZ - 0.49]}>
-        <boxGeometry args={[0.25, 4.6, 0.25]} />
-        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
-      </mesh>
-      <mesh position={[1.42, d.floorY + 2.3, d.backZ - 0.49]}>
-        <boxGeometry args={[0.25, 4.6, 0.25]} />
-        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
-      </mesh>
-      <mesh position={[0, d.floorY + 4.72, d.backZ - 0.49]}>
-        <boxGeometry args={[3.1, 0.3, 0.25]} />
-        <meshStandardMaterial color={theme.metal} roughness={0.6} metalness={0.4} />
-      </mesh>
-      <mesh position={[0, d.floorY + 5.15, d.backZ - 0.46]}>
-        <boxGeometry args={[1.3, 0.3, 0.12]} />
-        <meshBasicMaterial color="#38e08a" toneMapped={false} />
-      </mesh>
-      {/* teal header bar above the door (wall-mounted) */}
-      <mesh position={[0, d.floorY + 6.2, d.backZ - 0.46]}>
-        <boxGeometry args={[2.2, 0.22, 0.12]} />
-        <meshBasicMaterial color={TEAL} toneMapped={false} />
-      </mesh>
-
-      {/* crates: the sole floor props, grounded behind / beside the player only */}
-      {[
-        { x: crateX, z: d.backZ - 3, y: 0, c: '#1a2c52' },
-        { x: -crateX, z: d.backZ - 3, y: 0, c: OLIVE },
-        { x: crateX, z: d.backZ - 3, y: 1, c: '#22365e' },
-        { x: crateX - 1.5, z: d.backZ - 2.8, y: 0, c: RUST },
-        { x: -crateX + 2.2, z: d.backZ - 5.5, y: 0, c: '#22365e' },
-      ].map((box, i) => (
-        <mesh key={i} position={[box.x, d.floorY + 0.65 + box.y * 1.3, box.z]}>
-          <boxGeometry args={[1.3, 1.3, 1.3]} />
-          <meshStandardMaterial color={box.c} roughness={0.75} metalness={0.2} />
-        </mesh>
-      ))}
+      {mapTheme === 'range' && <RangeMap d={d} theme={theme} />}
+      {mapTheme === 'hangar' && <HangarMap d={d} theme={theme} />}
+      {mapTheme === 'rooftop' && <RooftopMap d={d} theme={theme} />}
+      {mapTheme === 'void' && <VoidMap d={d} theme={theme} />}
     </group>
   );
 }

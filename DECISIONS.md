@@ -96,14 +96,20 @@ Kills spawn 8 shards from a 16-slot ring buffer drawn as ONE instanced mesh
 `performance.now()`, never touches sim state or the RNG, so determinism/replays
 are unaffected. Skipped under `prefers-reduced-motion`.
 
-## D-17: Arena themes, procedural surfaces, wired video settings
+## D-17: Four distinct maps, procedural surfaces, wired video settings
 
-Three data-only themes (`night`, `neon`, `concrete`) retint the same clear-zone
-geometry, so lane/occlusion invariants (arena.test) hold for all of them.
-Surfaces are canvas-generated panel textures (deterministic LCG, no assets) and
-reflections come from a one-shot procedural `Environment` (Lightformers): offline-first,
-no HDR download, no per-frame cost. Bloom (threshold 0.5) is optional and only catches
-bright emissives; targets sit far below it. `bloom`, `brightness`, `contrast` and
-`colorblind` existed in settings but did nothing — they are now wired (brightness scales
-all lights; contrast retints targets, default 1.15 = authored look; colorblind swaps to
-Okabe–Ito-derived target colors). Persisted settings bumped to v2 (migration enables bloom).
+Maps are different _geometry_, not palette swaps: `range` (corridor), `hangar`
+(vaulted roof on arched trusses, catwalks, containers, light shafts, wet reflective
+floor), `rooftop` (shader dusk sky, instanced skyline, parapets) and `void`
+(wall-less synthwave: striped sun, reflective floor + shader grid, wire ridges).
+All share `computeDims` (clear zone from spawn volume + movement drift + target
+radius); props live at the sides/behind, and the wall or sky behind the targets stays
+bare (skyline/ridges in front of the lane are pushed below/near the horizon).
+Repeated props are single-draw `Instances`; textures are canvas-generated (deterministic
+LCG, no assets); reflections use a one-shot procedural `Environment` plus a planar
+`MeshReflectorMaterial` floor on hangar/void only (the one per-frame extra cost).
+Bloom (threshold 0.5) is optional. `bloom`, `brightness`, `contrast` and `colorblind`
+existed in settings but did nothing — they are now wired (brightness scales all lights;
+contrast retints targets, default 1.15 = authored look; colorblind swaps to
+Okabe–Ito-derived target colors). Persisted settings are v3 (v1: bloom on; v2 palette
+names -> `range`).
